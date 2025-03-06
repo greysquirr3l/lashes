@@ -1,15 +1,4 @@
 package repository
 
-import (
-	"context"
-
-	"github.com/greysquirr3l/lashes/internal/models"
-)
-
-type PostRepository interface {
-    Create(ctx context.Context, post *models.Post) error
-    GetByID(ctx context.Context, id int64) (*models.Post, error)
-    Update(ctx context.Context, post *models.Post) error
-    Delete(ctx context.Context, id int64) error
-    List(ctx context.Context) ([]*models.Post, error)
-}
+// This file can be safely deleted as the ProxyRepository interface
+// is already defined in internal/repository/proxy.go

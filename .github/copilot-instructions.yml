@@ -5,7 +5,48 @@ instructions:
   - Implement repository pattern as shown in internal/repository
   - Use context.Context in repository methods
   - Use meaningful variable names
+  - Minimize external dependencies
+  - Prefer standard library solutions
+  - Implement features in pure Go where possible
+  - Avoid third-party services and tools
+
+project:
+  name: lashes
+  description: Go proxy rotation library with multiple storage backends
+  language: go
+  version: 1.24.1
+  features:
+    - Multiple proxy types (HTTP, SOCKS4, SOCKS5)
+    - Configurable rotation strategies
+    - Database persistence
+    - Health checking
+    - Metrics tracking
+  dependencies:
+    policy: minimal
+    allowed:
+      - database drivers
+      - testing utilities
+    forbidden:
+      - browser automation tools
+      - captcha solving services
+      - external proxy providers
+      - third-party HTTP clients
 
 style_guide: copilot-instructions.md
 test_framework: testing
-language: go
+database:
+  supported:
+    - sqlite
+    - mysql
+    - postgres
+license: MIT
+
+implementation:
+  prefer:
+    - net/http
+    - database/sql
+    - context
+    - sync
+    - time
+    - crypto/tls
+    - encoding/*

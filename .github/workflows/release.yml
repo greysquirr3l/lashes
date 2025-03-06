@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+    
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '1.24.1'
+        cache: true
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y sqlite3 libsqlite3-dev
+        go mod download
+        go mod verify
+
+    - name: Run tests
+      run: go test -v ./...
+
+    - name: Build
+      run: |
+        mkdir -p bin
+        VERSION=${GITHUB_REF#refs/tags/}
+        echo "Building version: $VERSION"
+        
+        LDFLAGS="-X 'github.com/greysquirr3l/lashes.Version=${VERSION}' \
+                 -X 'github.com/greysquirr3l/lashes.BuildTime=$(date -u +"%Y-%m-%dT%H:%M:%SZ")' \
+                 -X 'github.com/greysquirr3l/lashes.GitCommit=$(git rev-parse HEAD)'"
+        
+        GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="$LDFLAGS" -o bin/lashes-linux-amd64
+        GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="$LDFLAGS" -o bin/lashes-darwin-amd64
+        GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -ldflags="$LDFLAGS" -o bin/lashes-darwin-arm64
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          bin/lashes-linux-amd64
+          bin/lashes-darwin-amd64
+          bin/lashes-darwin-arm64
+        draft: false
+        prerelease: false
+        generate_release_notes: true
+        fail_on_unmatched_files: true
