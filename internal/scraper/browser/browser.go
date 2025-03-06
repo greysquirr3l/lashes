@@ -1,4 +1,3 @@
+// Package browser has been removed to maintain zero core dependencies.
+// Browser automation should be implemented by the end user if needed.
 package browser
-
-// This package has been removed to comply with the zero external dependencies requirement.
-// Browser automation functionality should be implemented by the end user if needed.
