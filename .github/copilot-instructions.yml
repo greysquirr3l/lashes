@@ -1,0 +1,11 @@
+instructions:
+  - Read the coding style guide in copilot-instructions.md
+  - Follow Go best practices and idioms
+  - Use interfaces for dependency injection
+  - Implement repository pattern as shown in internal/repository
+  - Use context.Context in repository methods
+  - Use meaningful variable names
+
+style_guide: copilot-instructions.md
+test_framework: testing
+language: go
