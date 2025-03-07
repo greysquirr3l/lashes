@@ -12,7 +12,7 @@ To report a security vulnerability, please:
 
 1. **DO NOT** open a public GitHub issue
 
-2. Email <security@greysquirr3l.com> with:
+2. Email <s0ma@protonmail.me> with:
       - Description of the vulnerability
       - Steps to reproduce
       - Potential impact

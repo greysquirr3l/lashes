@@ -109,16 +109,17 @@ opts := lashes.Options{
 
 ```go
 opts := lashes.Options{
-    Strategy: rotation.Weighted,
+    Strategy: rotation.WeightedStrategy,
 }
 
 // Set proxy weights
-proxy.Weight = 5 // Higher weight = more frequent selection
+proxy.Weight = 100 // Higher weight = more frequent selection
 ```
 
 - Success rate-based selection
-- O(log n) selection time
-- Automatically adjusts to proxy performance
+- Cryptographically secure randomization
+- 95% selection chance for positive-weighted proxies
+- 5% selection chance for zero/negative-weighted proxies
 
 #### Least Used
 
@@ -157,12 +158,12 @@ The library provides structured error handling:
 proxy, err := rotator.GetProxy(ctx)
 if err != nil {
     switch {
-    case errors.Is(err, lashes.ErrProxyNotFound):
+    case errors.Is(err, lashes.ErrNoProxiesAvailable):
         // Handle missing proxy
-    case errors.Is(err, lashes.ErrProxyTimeout):
-        // Handle timeout
-    case errors.Is(err, lashes.ErrProxyUnavailable):
-        // Handle unavailable proxy
+    case errors.Is(err, lashes.ErrProxyNotFound):
+        // Handle proxy not found
+    case errors.Is(err, lashes.ErrInvalidProxy):
+        // Handle invalid proxy
     default:
         // Handle unknown error
     }
@@ -214,9 +215,20 @@ proxy.Settings.Headers = map[string][]string{
 ### Metrics Access
 
 ```go
-proxy, err := rotator.GetProxy(ctx)
-fmt.Printf("Success Rate: %.2f%%\n", 
-    float64(proxy.Metrics.SuccessCount)/float64(proxy.Metrics.TotalRequests)*100)
+// Get metrics for all proxies
+metrics, err := rotator.GetAllMetrics(ctx)
+if err != nil {
+    log.Fatalf("Failed to get metrics: %v", err)
+}
+
+// Display metrics
+for _, m := range metrics {
+    fmt.Printf("Proxy: %s, Success: %.1f%%, Requests: %d, Avg Latency: %v\n",
+        m.URL, 
+        m.SuccessRate * 100,
+        m.TotalCalls,
+        time.Duration(m.AvgLatency))
+}
 ```
 
 ## Storage Backends
@@ -236,11 +248,11 @@ fmt.Printf("Success Rate: %.2f%%\n",
 
 ## Security Features
 
-- 🔒 TLS support for database connections
-- 🔐 Secure credential handling
-- ⚡ Rate limiting
-- 🛡️ Input validation
-- 📝 Audit logging
+- 🔒 Cryptographically secure randomization (crypto/rand)
+- 🔐 TLS configuration with minimum TLS 1.2
+- ⚡ Rate limiting with standard library rate.Limiter
+- 🛡️ Robust input validation
+- 📝 Comprehensive error handling
 
 ## Metrics & Monitoring
 

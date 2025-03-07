@@ -1,0 +1,26 @@
+name: Verify Commit Signatures
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  verify-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Verify commits are signed
+        run: |
+          # Check commits in this PR/push
+          for commit in $(git rev-list --no-merges ${{ github.event.before }}..HEAD); do
+            if ! git verify-commit $commit; then
+              echo "❌ Unsigned commit found: $(git show -s --format='%h %s' $commit)"
+              exit 1
+            fi
+          done
+          echo "✅ All commits are properly signed"
