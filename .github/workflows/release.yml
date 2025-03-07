@@ -6,40 +6,42 @@ on:
     tags:
       - 'v*'
 
+permissions:
+  contents: write  # This is crucial for creating releases
+  packages: write
+
 jobs:
-  release:
-    name: Create Release
+  build-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # Important for tags and versioning
 
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: '1.24.0'
+          check-latest: true
 
       - name: Run tests
         run: go test -v ./...
-
-      - name: Set Version
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
-          name: Release ${{ steps.get_version.outputs.VERSION }}
+          name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
           generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-and-upload:
     name: Build and Upload
-    needs: release
+    needs: build-and-release
     runs-on: ubuntu-latest
     strategy:
       matrix:
