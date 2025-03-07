@@ -3,6 +3,7 @@ package sql
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -108,7 +109,7 @@ func (r *sqlRepository) GetByID(ctx context.Context, id string) (*domain.Proxy, 
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repository.ErrProxyNotFound
 		}
 		return nil, fmt.Errorf("failed to get proxy: %w", err)
@@ -152,7 +153,7 @@ func (r *sqlRepository) GetNext(ctx context.Context) (*domain.Proxy, error) {
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repository.ErrProxyNotFound
 		}
 		return nil, fmt.Errorf("failed to get next proxy: %w", err)
@@ -185,7 +186,11 @@ func (r *sqlRepository) List(ctx context.Context) ([]*domain.Proxy, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to list proxies: %w", err)
 	}
-	defer rows.Close()
+	defer func() { 
+		if err := rows.Close(); err != nil {
+			// Consider logging this error or handling it appropriately
+		}
+	}()
 
 	var proxies []*domain.Proxy
 

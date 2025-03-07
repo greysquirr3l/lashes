@@ -47,7 +47,11 @@ func (p *freeProxyProvider) Fetch(ctx context.Context) ([]*domain.Proxy, error) 
 		if err != nil {
 			continue
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if err := resp.Body.Close(); err != nil {
+				// Consider logging this error
+			}
+		}()
 
 		if resp.StatusCode != http.StatusOK {
 			continue

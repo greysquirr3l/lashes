@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"sync"
@@ -53,7 +54,7 @@ func testCreate(t *testing.T, repo *memoryRepository) {
 
 	// Test duplicate creation
 	err = repo.Create(ctx, proxy)
-	if err != ErrDuplicateID {
+	if !errors.Is(err, ErrDuplicateID) {
 		t.Errorf("Expected ErrDuplicateID, got %v", err)
 	}
 }
@@ -112,7 +113,7 @@ func testDelete(t *testing.T, repo *memoryRepository) {
 	}
 
 	_, err = repo.GetByID(ctx, proxy.ID)
-	if err != ErrProxyNotFound {
+	if !errors.Is(err, ErrProxyNotFound) {
 		t.Errorf("Expected ErrProxyNotFound, got %v", err)
 	}
 }

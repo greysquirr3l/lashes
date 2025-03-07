@@ -11,7 +11,13 @@ func NewStrategy(strategyType StrategyType) (Strategy, error) {
 	switch strategyType {
 	case RoundRobin:
 		return &roundRobinStrategy{counter: 0}, nil
-	// ...add other strategies
+	case Random:
+		// For now, return not-implemented error; implement later.
+		return nil, ErrInvalidStrategy
+	case Weighted:
+		return nil, ErrInvalidStrategy
+	case LeastUsed:
+		return nil, ErrInvalidStrategy
 	default:
 		return nil, ErrInvalidStrategy
 	}
