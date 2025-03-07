@@ -1,10 +1,15 @@
 # Lashes - Advanced Go Proxy Rotation Library
 
+<p align="center">
+  <img src="./docs/images/lashes.png" alt="Lashes Logo" width="250">
+</p>
+
 [![Go Reference](https://pkg.go.dev/badge/github.com/greysquirr3l/lashes.svg)](https://pkg.go.dev/github.com/greysquirr3l/lashes)
 [![Go Report Card](https://goreportcard.com/badge/github.com/greysquirr3l/lashes)](https://goreportcard.com/report/github.com/greysquirr3l/lashes)
 [![License](https://img.shields.io/github/license/greysquirr3l/lashes)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/greysquirr3l/lashes)](https://github.com/greysquirr3l/lashes/releases)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/greysquirr3l/lashes)](go.mod)
+[![Test Coverage](https://img.shields.io/badge/coverage-75%25-brightgreen)](https://github.com/greysquirr3l/lashes/actions)
 
 A high-performance, thread-safe proxy rotation library for Go applications with zero core dependencies. Supports multiple proxy types, configurable rotation strategies, and optional persistence layers.
 
