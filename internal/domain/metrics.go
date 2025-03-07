@@ -5,85 +5,64 @@ import (
 	"time"
 )
 
-// Metrics tracks usage and performance data for proxies
+// Metrics tracks proxy performance measurements
 type Metrics struct {
-    mu              sync.RWMutex
-    TotalRequests   int64
-    SuccessCount    int64
-    FailureCount    int64
-    LastStatusCode  int
-    LastUsedAt      time.Time
-    AverageLatency  time.Duration
-    LatencyCount    int64
-    TotalLatency    time.Duration
-    ConsecutiveFails int
+	SuccessCount   int64         `json:"success_count"`
+	FailureCount   int64         `json:"failure_count"`
+	TotalRequests  int64         `json:"total_requests"`
+	AvgLatency     time.Duration `json:"avg_latency_ms"`
+	LastStatusCode int           `json:"last_status_code"`
+	mu             sync.RWMutex
 }
 
-// IncrementLatency adds a new latency measurement and updates the average
-func (m *Metrics) IncrementLatency(latency time.Duration) {
-    m.mu.Lock()
-    defer m.mu.Unlock()
-    
-    m.LatencyCount++
-    m.TotalLatency += latency
-    m.AverageLatency = time.Duration(int64(m.TotalLatency) / m.LatencyCount)
-    m.LastUsedAt = time.Now()
-}
-
-// RecordSuccess records a successful request
-func (m *Metrics) RecordSuccess(statusCode int) {
-    m.mu.Lock()
-    defer m.mu.Unlock()
-    
-    m.TotalRequests++
-    m.SuccessCount++
-    m.LastStatusCode = statusCode
-    m.ConsecutiveFails = 0
-    m.LastUsedAt = time.Now()
-}
-
-// RecordFailure records a failed request
-func (m *Metrics) RecordFailure(statusCode int) {
-    m.mu.Lock()
-    defer m.mu.Unlock()
-    
-    m.TotalRequests++
-    m.FailureCount++
-    m.LastStatusCode = statusCode
-    m.ConsecutiveFails++
-    m.LastUsedAt = time.Now()
-}
-
-// GetSuccessRate returns the percentage of successful requests
-func (m *Metrics) GetSuccessRate() float64 {
-    m.mu.RLock()
-    defer m.mu.RUnlock()
-    
-    if m.TotalRequests == 0 {
-        return 0.0
-    }
-    return float64(m.SuccessCount) / float64(m.TotalRequests) * 100.0
-}
-
-// Reset resets all metrics to their zero values
-func (m *Metrics) Reset() {
-    m.mu.Lock()
-    defer m.mu.Unlock()
-    
-    m.TotalRequests = 0
-    m.SuccessCount = 0
-    m.FailureCount = 0
-    m.LastStatusCode = 0
-    m.AverageLatency = 0
-    m.LatencyCount = 0
-    m.TotalLatency = 0
-    m.ConsecutiveFails = 0
-    // Intentionally not resetting LastUsedAt to keep track of idle proxies
-}
-
-// NewMetrics creates a new Metrics instance with initialized values
+// NewMetrics creates a new metrics tracker
 func NewMetrics() *Metrics {
-    return &Metrics{
-        LastUsedAt: time.Now(),
-    }
+	return &Metrics{}
+}
+
+// RecordSuccess records a successful request with status code
+func (m *Metrics) RecordSuccess(statusCode int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	m.SuccessCount++
+	m.TotalRequests++
+	m.LastStatusCode = statusCode
+}
+
+// RecordFailure records a failed request with status code
+func (m *Metrics) RecordFailure(statusCode int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	m.FailureCount++
+	m.TotalRequests++
+	m.LastStatusCode = statusCode
+}
+
+// IncrementLatency adds a latency measurement and recalculates average
+func (m *Metrics) IncrementLatency(latency time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	if m.TotalRequests == 0 {
+		m.AvgLatency = latency
+		return
+	}
+	
+	// Calculate new average: ((avg * count) + new) / (count + 1)
+	total := m.AvgLatency.Nanoseconds() * m.TotalRequests
+	m.AvgLatency = time.Duration((total + latency.Nanoseconds()) / (m.TotalRequests + 1))
+}
+
+// GetSuccessRate returns the success rate as a float between 0 and 1
+func (m *Metrics) GetSuccessRate() float64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	
+	if m.TotalRequests == 0 {
+		return 0
+	}
+	
+	return float64(m.SuccessCount) / float64(m.TotalRequests)
 }

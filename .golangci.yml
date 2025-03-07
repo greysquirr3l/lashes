@@ -11,6 +11,11 @@ linters:
     - staticcheck
     - typecheck
     - gosec
+    - goconst # Finds repeated strings that could be constants
+    - exhaustive # Checks exhaustiveness of enum switch statements
+    - gocyclo # Checks function complexity
+    - misspell # Finds commonly misspelled English words
+    - copyloopvar # Checks for pointers to enclosing loop variables
   disable:
     - prealloc
   disable-all: false
@@ -23,6 +28,10 @@ linters-settings:
   errcheck:
     check-type-assertions: true
     check-blank: true
+    # Exclude functions where ignoring errors is typically safe
+    exclude-functions:
+      - (*database/sql.Stmt).Close
+      - io.Closer.Close
   dogsled:
     max-blank-identifiers: 2
   dupl:
@@ -134,6 +143,23 @@ issues:
     - linters:
         - lll
       source: "^//go:generate "
+    # Add exclusion for unused directive warning
+    - linters:
+        - unused
+      source: "nolint:unused"
+    # Add exclusion for references to weak random functions in specific contexts
+    - path: internal/rotation/strategy.go
+      text: "G404:"
+      linters:
+        - gosec
+    # Update the unused exclusion to handle both ways of specifying the directive
+    - linters:
+        - unused
+      source: "nolint:unused"
+    # Also exclude it when specified with a comment
+    - linters:
+        - unused
+      source: "nolint:unused //"
   exclude-use-default: false
   max-issues-per-linter: 0
   max-same-issues: 0

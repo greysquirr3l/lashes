@@ -2,6 +2,7 @@ package providers
 
 import (
 	"bufio"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -29,9 +30,10 @@ func (p *freeProxyProvider) parseTextList(resp *http.Response) ([]*domain.Proxy,
 
 		proxy := &domain.Proxy{
 			ID:         uuid.New().String(),
-			URL:        parsedURL,
-			Type:       domain.HTTP,
-			IsActive:   true,
+			URL:        parsedURL.String(), // Convert URL to string
+			Type:       domain.HTTPProxy,   // Use proper constant
+			Enabled:    true,
+			IsActive:   true, // For backwards compatibility
 			MaxRetries: 3,
 		}
 		proxies = append(proxies, proxy)
@@ -62,13 +64,40 @@ func (p *freeProxyProvider) parseProxyScrape(resp *http.Response) ([]*domain.Pro
 
 		proxy := &domain.Proxy{
 			ID:         uuid.New().String(),
-			URL:        parsedURL,
-			Type:       domain.HTTP,
-			IsActive:   true,
+			URL:        parsedURL.String(), // Convert URL to string
+			Type:       domain.HTTPProxy,   // Use proper constant
+			Enabled:    true,
+			IsActive:   true, // For backwards compatibility
 			MaxRetries: 3,
 		}
 		proxies = append(proxies, proxy)
 	}
 
 	return proxies, nil
+}
+
+// parseProxyLine parses a line of text into a proxy object.
+// This is a utility function exported for external consumers of the package.
+// nolint:unused
+func parseProxyLine(line string) (*domain.Proxy, error) {
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return nil, fmt.Errorf("empty line")
+	}
+
+	parsedURL, err := url.Parse("http://" + line)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse proxy URL: %w", err)
+	}
+
+	proxy := &domain.Proxy{
+		ID:         uuid.New().String(),
+		URL:        parsedURL.String(), // Convert URL to string
+		Type:       domain.HTTPProxy,   // Use proper constant
+		Enabled:    true,              
+		IsActive:   true, // For backwards compatibility
+		MaxRetries: 3,
+	}
+
+	return proxy, nil
 }

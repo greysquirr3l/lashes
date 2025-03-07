@@ -94,7 +94,7 @@ func validateProxy(proxy *domain.Proxy) error {
 	if proxy == nil {
 		return ErrInvalidProxy
 	}
-	if proxy.URL == nil {
+	if proxy.URL == "" {
 		return ErrInvalidProxy
 	}
 	if proxy.Type == "" {
