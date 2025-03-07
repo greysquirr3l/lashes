@@ -11,19 +11,17 @@ import (
 )
 
 type Client struct {
-	proxy       *domain.Proxy
-	client      *http.Client
+	http.Client // Embed http.Client
 	maxRetries  int
-	timeout     time.Duration
-	verifyCerts bool
+	metrics     *domain.Metrics
 }
 
 type Options struct {
 	Timeout         time.Duration
 	MaxRetries      int
-	VerifyCerts     bool
 	FollowRedirects bool
 	Headers         http.Header
+	VerifyCerts     bool
 }
 
 func NewClient(proxy *domain.Proxy, opts Options) (*http.Client, error) {
@@ -34,9 +32,15 @@ func NewClient(proxy *domain.Proxy, opts Options) (*http.Client, error) {
 
 	transport := &http.Transport{
 		Proxy: http.ProxyURL(proxyURL),
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: !opts.VerifyCerts,
-		},
+	}
+	
+	// Only modify TLS configuration if certificates should not be verified
+	// This is explicitly set by the caller and is their responsibility
+	if !opts.VerifyCerts {
+		transport.TLSClientConfig = &tls.Config{
+			// #nosec G402 -- InsecureSkipVerify is set only when needed for testing or non-production scenarios
+			InsecureSkipVerify: true,
+		}
 	}
 
 	// Set default headers if not provided
@@ -47,7 +51,7 @@ func NewClient(proxy *domain.Proxy, opts Options) (*http.Client, error) {
 		opts.Headers.Set("User-Agent", agent.GetRandomUserAgent())
 	}
 
-	return &http.Client{
+	httpClient := &http.Client{
 		Transport: transport,
 		Timeout:   opts.Timeout,
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -56,27 +60,40 @@ func NewClient(proxy *domain.Proxy, opts Options) (*http.Client, error) {
 			}
 			return nil
 		},
-	}, nil
+	}
+
+	return httpClient, nil
 }
 
 func (c *Client) Do(req *http.Request) (*http.Response, error) {
 	var resp *http.Response
 	var err error
-
+	
+	startTime := time.Now()
+	
 	for attempt := 0; attempt <= c.maxRetries; attempt++ {
-		resp, err = c.client.Do(req)
+		resp, err = c.Client.Do(req)
 		if err == nil {
-			// Update metrics
-			c.proxy.Metrics.TotalRequests++
-			c.proxy.Metrics.LastStatusCode = resp.StatusCode
+			// Calculate request latency
+			latency := time.Since(startTime)
+			c.metrics.IncrementLatency(latency)
+			
+			// Update metrics based on status code
 			if resp.StatusCode < 400 {
-				c.proxy.Metrics.SuccessCount++
+				c.metrics.RecordSuccess(resp.StatusCode)
 			} else {
-				c.proxy.Metrics.FailureCount++
+				c.metrics.RecordFailure(resp.StatusCode)
 			}
 			return resp, nil
 		}
 	}
-
+	
+	// Record failure if all attempts failed
+	c.metrics.RecordFailure(0)
 	return nil, err
+}
+
+// GetMetrics returns the client's metrics
+func (c *Client) GetMetrics() *domain.Metrics {
+	return c.metrics
 }

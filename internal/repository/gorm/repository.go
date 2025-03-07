@@ -38,7 +38,7 @@ func NewProxyRepository(db *gorm.DB, opts Options) repository.ProxyRepository {
 
 func (r *proxyRepository) Create(ctx context.Context, proxy *domain.Proxy) error {
 	if err := validateProxy(proxy); err != nil {
-		return fmt.Errorf("%w: %v", repository.ErrInvalidProxy, err)
+		return fmt.Errorf("%w: %s", repository.ErrInvalidProxy, err.Error())
 	}
 
 	model := toModel(proxy)

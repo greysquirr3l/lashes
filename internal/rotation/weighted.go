@@ -2,7 +2,8 @@ package rotation
 
 import (
 	"context"
-	"math/rand"
+	"crypto/rand"
+	"math/big"
 	"sync"
 
 	"github.com/greysquirr3l/lashes/internal/domain"
@@ -29,10 +30,12 @@ func (s *weightedStrategy) Next(ctx context.Context, proxies []*domain.Proxy) (*
 		totalWeight += proxy.Weight
 	}
 
-	// Get random weight
-	randWeight := rand.Intn(totalWeight)
+	n, err := rand.Int(rand.Reader, big.NewInt(int64(totalWeight)))
+	if err != nil {
+		return proxies[0], nil
+	}
+	randWeight := int(n.Int64())
 
-	// Find proxy that matches the random weight
 	for _, proxy := range proxies {
 		if randWeight < proxy.Weight {
 			return proxy, nil
