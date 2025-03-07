@@ -33,7 +33,7 @@ A high-performance, thread-safe proxy rotation library for Go applications with 
 go get github.com/greysquirr3l/lashes@latest
 ```
 
-Minimum Go version: 1.24.1
+Minimum Go version: 1.24.0
 
 ## Quick Start
 

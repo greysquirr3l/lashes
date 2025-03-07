@@ -1,6 +1,6 @@
 module github.com/greysquirr3l/lashes
 
-go 1.24.1
+go 1.24.0
 
 require (
 	github.com/google/uuid v1.6.0
