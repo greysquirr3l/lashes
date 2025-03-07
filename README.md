@@ -1,8 +1,6 @@
 # Lashes - Advanced Go Proxy Rotation Library
 
-<p align="center">
-  <img src="./docs/images/lashes.png" alt="Lashes Logo" width="250">
-</p>
+![Lashes Logo](./docs/images/lashes.png)
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/greysquirr3l/lashes.svg)](https://pkg.go.dev/github.com/greysquirr3l/lashes)
 [![Go Report Card](https://goreportcard.com/badge/github.com/greysquirr3l/lashes)](https://goreportcard.com/report/github.com/greysquirr3l/lashes)
