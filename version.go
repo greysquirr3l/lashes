@@ -5,7 +5,7 @@ const (
     Version = "v0.1.0"
     
     // MinGoVersion is the minimum supported Go version
-    MinGoVersion = "1.24.1"
+    MinGoVersion = "1.24.0"
 )
 
 // Build information, populated during build using -ldflags:

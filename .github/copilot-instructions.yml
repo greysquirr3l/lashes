@@ -14,7 +14,7 @@ project:
   name: lashes
   description: Go proxy rotation library with multiple storage backends
   language: go
-  version: 1.24.1
+  version: 1.24.0
   features:
     - Multiple proxy types (HTTP, SOCKS4, SOCKS5)
     - Configurable rotation strategies

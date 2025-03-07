@@ -58,7 +58,7 @@ A robust proxy rotation library for Go applications that supports multiple proxy
 
 - GORM for database operations
 - Multiple database drivers (SQLite, MySQL, PostgreSQL)
-- Built with Go 1.24.1 features
+- Built with Go 1.24.0 features
 
 ### Testing Requirements
 
