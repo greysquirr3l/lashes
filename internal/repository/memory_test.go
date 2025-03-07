@@ -37,7 +37,7 @@ func createTestProxy(id string) *domain.Proxy {
 	u, _ := url.Parse("http://example.com:8080")
 	return &domain.Proxy{
 		ID:       id,
-		URL:      u,
+		URL:      u.String(), // Convert URL to string
 		Type:     domain.HTTP,
 		IsActive: true,
 	}

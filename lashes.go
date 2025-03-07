@@ -27,9 +27,9 @@ type StorageOptions struct {
 
 // Public type aliases
 type (
-	Proxy        = domain.Proxy
-	ProxyType    = domain.ProxyType
-	ProxyMetrics = domain.ProxyMetrics
+	Proxy     = domain.Proxy
+	ProxyType = domain.ProxyType
+	// Completely remove this line - don't create a ProxyMetrics alias
 )
 
 // Public constants
@@ -75,6 +75,12 @@ type ProxyRotator interface {
 	// ValidateAll validates all proxies in the pool using the configured test URL.
 	// Updates proxy status and latency metrics for each proxy.
 	ValidateAll(ctx context.Context) error
+
+	// GetProxyMetrics returns performance metrics for a specific proxy
+	GetProxyMetrics(ctx context.Context, proxyID string) (*ProxyMetrics, error)
+
+	// GetAllMetrics returns performance metrics for all proxies
+	GetAllMetrics(ctx context.Context) ([]*ProxyMetrics, error)
 }
 
 // Options configures the proxy rotator behavior.

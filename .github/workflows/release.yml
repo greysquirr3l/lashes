@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow
 name: Release
 
 on:
@@ -5,55 +6,71 @@ on:
     tags:
       - 'v*'
 
-permissions:
-  contents: write
-
 jobs:
   release:
+    name: Create Release
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    
-    - name: Setup Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.24.1'
-        cache: true
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y sqlite3 libsqlite3-dev
-        go mod download
-        go mod verify
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
 
-    - name: Run tests
-      run: go test -v ./...
+      - name: Run tests
+        run: go test -v ./...
 
-    - name: Build
-      run: |
-        mkdir -p bin
-        VERSION=${GITHUB_REF#refs/tags/}
-        echo "Building version: $VERSION"
-        
-        LDFLAGS="-X 'github.com/greysquirr3l/lashes.Version=${VERSION}' \
-                 -X 'github.com/greysquirr3l/lashes.BuildTime=$(date -u +"%Y-%m-%dT%H:%M:%SZ")' \
-                 -X 'github.com/greysquirr3l/lashes.GitCommit=$(git rev-parse HEAD)'"
-        
-        GOOS=linux GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="$LDFLAGS" -o bin/lashes-linux-amd64
-        GOOS=darwin GOARCH=amd64 CGO_ENABLED=1 go build -ldflags="$LDFLAGS" -o bin/lashes-darwin-amd64
-        GOOS=darwin GOARCH=arm64 CGO_ENABLED=1 go build -ldflags="$LDFLAGS" -o bin/lashes-darwin-arm64
+      - name: Set Version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          bin/lashes-linux-amd64
-          bin/lashes-darwin-amd64
-          bin/lashes-darwin-arm64
-        draft: false
-        prerelease: false
-        generate_release_notes: true
-        fail_on_unmatched_files: true
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+  build-and-upload:
+    name: Build and Upload
+    needs: release
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        goos: [linux, windows, darwin]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
+      - name: Set Version
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          go build -v -o lashes-${{ matrix.goos }}-${{ matrix.goarch }}
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            lashes-${{ matrix.goos }}-${{ matrix.goarch }}

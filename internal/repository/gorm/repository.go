@@ -36,12 +36,13 @@ func NewProxyRepository(db *gorm.DB, opts Options) repository.ProxyRepository {
 	}
 }
 
+// Create implements the repository method to create a proxy record
 func (r *proxyRepository) Create(ctx context.Context, proxy *domain.Proxy) error {
 	if err := validateProxy(proxy); err != nil {
 		return fmt.Errorf("%w: %s", repository.ErrInvalidProxy, err.Error())
 	}
 
-	model := toModel(proxy)
+	model := FromDomain(proxy)
 	tx := r.db.WithContext(ctx).Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -60,6 +61,7 @@ func (r *proxyRepository) Create(ctx context.Context, proxy *domain.Proxy) error
 	return tx.Commit().Error
 }
 
+// GetByID retrieves a proxy by its ID
 func (r *proxyRepository) GetByID(ctx context.Context, id string) (*domain.Proxy, error) {
 	var model ProxyModel
 	result := r.db.WithContext(ctx).First(&model, "id = ?", id)
@@ -69,11 +71,14 @@ func (r *proxyRepository) GetByID(ctx context.Context, id string) (*domain.Proxy
 		}
 		return nil, result.Error
 	}
+	
+	// Fix the return to include error handling
 	return model.ToDomain()
 }
 
+// Update updates an existing proxy
 func (r *proxyRepository) Update(ctx context.Context, proxy *domain.Proxy) error {
-	model := toModel(proxy)
+	model := FromDomain(proxy)
 
 	result := r.db.WithContext(ctx).Save(model)
 	if result.Error != nil {
@@ -85,6 +90,7 @@ func (r *proxyRepository) Update(ctx context.Context, proxy *domain.Proxy) error
 	return nil
 }
 
+// Delete removes a proxy by ID
 func (r *proxyRepository) Delete(ctx context.Context, id string) error {
 	result := r.db.WithContext(ctx).Delete(&ProxyModel{}, "id = ?", id)
 	if result.Error != nil {
@@ -96,6 +102,7 @@ func (r *proxyRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
+// List retrieves all proxies
 func (r *proxyRepository) List(ctx context.Context) ([]*domain.Proxy, error) {
 	var models []ProxyModel
 	if err := r.db.WithContext(ctx).Find(&models).Error; err != nil {
@@ -104,6 +111,7 @@ func (r *proxyRepository) List(ctx context.Context) ([]*domain.Proxy, error) {
 
 	proxies := make([]*domain.Proxy, 0, len(models))
 	for _, model := range models {
+		// Handle potential error from ToDomain
 		proxy, err := model.ToDomain()
 		if err != nil {
 			return nil, err
@@ -113,6 +121,7 @@ func (r *proxyRepository) List(ctx context.Context) ([]*domain.Proxy, error) {
 	return proxies, nil
 }
 
+// GetNext retrieves the next proxy to use
 func (r *proxyRepository) GetNext(ctx context.Context) (*domain.Proxy, error) {
 	var model ProxyModel
 	if err := r.db.WithContext(ctx).
@@ -124,38 +133,54 @@ func (r *proxyRepository) GetNext(ctx context.Context) (*domain.Proxy, error) {
 		}
 		return nil, err
 	}
+	
+	// Fix the return to include error handling
 	return model.ToDomain()
 }
 
+// validateProxy checks if a proxy is valid
 func validateProxy(proxy *domain.Proxy) error {
 	if proxy == nil {
 		return errors.New("proxy cannot be nil")
 	}
-	if proxy.URL == nil {
-		return errors.New("proxy URL cannot be nil")
+	if proxy.ID == "" {
+		return errors.New("proxy ID cannot be empty")
 	}
-	if proxy.Type == "" {
-		return errors.New("proxy type cannot be empty")
+	if proxy.URL == "" {
+		return errors.New("proxy URL cannot be empty")
 	}
 	return nil
 }
 
+// toModel is a legacy conversion function maintained for backward compatibility.
+// New code should use FromDomain instead.
+// nolint:unused
 func toModel(proxy *domain.Proxy) *ProxyModel {
+	// Convert pointers to values, using zero values if nil
+	var lastUsed time.Time
+	if proxy.LastUsed != nil {
+		lastUsed = *proxy.LastUsed
+	}
+	
+	var lastCheck time.Time
+	if proxy.LastCheck != nil {
+		lastCheck = *proxy.LastCheck
+	}
+	
 	return &ProxyModel{
-		ID:             proxy.ID,
-		URL:            proxy.URL.String(),
-		Type:           string(proxy.Type),
-		LastUsed:       proxy.LastUsed,
-		LastCheck:      proxy.LastCheck,
-		Latency:        proxy.Latency,
-		IsActive:       proxy.IsActive,
-		Weight:         proxy.Weight,
-		MaxRetries:     proxy.MaxRetries,
-		Timeout:        proxy.Timeout,
-		SuccessCount:   proxy.Metrics.SuccessCount,
-		FailureCount:   proxy.Metrics.FailureCount,
-		TotalRequests:  proxy.Metrics.TotalRequests,
-		AvgLatency:     proxy.Metrics.AvgLatency,
-		LastStatusCode: proxy.Metrics.LastStatusCode,
+		ID:          proxy.ID,
+		URL:         proxy.URL, // URL is already a string
+		Type:        string(proxy.Type),
+		Username:    proxy.Username,
+		Password:    proxy.Password,
+		CountryCode: proxy.CountryCode,
+		Weight:      proxy.Weight,
+		LastUsed:    lastUsed,
+		LastCheck:   lastCheck,
+		Latency:     proxy.Latency, 
+		IsActive:    proxy.IsActive,
+		SuccessRate: proxy.SuccessRate,
+		UsageCount:  proxy.UsageCount,
+		ErrorCount:  proxy.ErrorCount,
 	}
 }

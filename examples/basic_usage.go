@@ -6,36 +6,28 @@ import (
 	"log"
 
 	"github.com/greysquirr3l/lashes"
-	"github.com/greysquirr3l/lashes/internal/storage"
+	"github.com/greysquirr3l/lashes/internal/domain"
 )
 
-// BasicUsageExample shows how to use the lashes proxy rotator
+// BasicUsageExample demonstrates how to initialize and use the lashes library
 func BasicUsageExample() {
-	// Initialize with SQLite
-	opts := lashes.Options{
-		Storage: &storage.Options{
-			Type: storage.SQLite,
-			DSN:  "file:proxies.db?cache=shared&mode=rwc",
-		},
+	// Initialize with default options
+	rotator, err := lashes.New(lashes.DefaultOptions())
+	if (err != nil) {
+		log.Fatalf("Failed to create rotator: %v", err)
 	}
 
-	// Create proxy rotator
-	rotator, err := lashes.New(opts)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Add some proxies
+	// Add a proxy
 	ctx := context.Background()
-	err = rotator.AddProxy(ctx, "http://proxy1.example.com:8080", lashes.HTTP)
+	err = rotator.AddProxy(ctx, "http://example.com:8080", domain.HTTPProxy)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to add proxy: %v", err)
 	}
 
-	// Use the proxy rotator
+	// Get a proxy
 	proxy, err := rotator.GetProxy(ctx)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to get proxy: %v", err)
 	}
 
 	fmt.Printf("Using proxy: %s\n", proxy.URL)

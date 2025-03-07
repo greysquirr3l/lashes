@@ -6,12 +6,21 @@ import (
 	"time"
 )
 
+// ProxyType defines the type of proxy
 type ProxyType string
 
+// Available proxy types
 const (
-	HTTP   ProxyType = "http"
-	SOCKS4 ProxyType = "socks4"
-	SOCKS5 ProxyType = "socks5"
+	HTTPProxy   ProxyType = "http"
+	SOCKS4Proxy ProxyType = "socks4"
+	SOCKS5Proxy ProxyType = "socks5"
+)
+
+// Alias constants for backward compatibility
+const (
+	HTTP   = HTTPProxy
+	SOCKS4 = SOCKS4Proxy
+	SOCKS5 = SOCKS5Proxy
 )
 
 type ProxyMetrics struct {
@@ -32,17 +41,45 @@ type ProxySettings struct {
 	UserAgent       string
 }
 
+// Proxy represents a proxy server configuration
 type Proxy struct {
-	ID         string
-	URL        *url.URL
-	Type       ProxyType
-	LastUsed   time.Time
-	LastCheck  time.Time
-	Latency    time.Duration
-	IsActive   bool
-	Metrics    ProxyMetrics
-	Weight     int           // For weighted rotation
-	MaxRetries int           // Maximum retry attempts
-	Timeout    time.Duration // Proxy-specific timeout
-	Settings   ProxySettings
+	ID          string     `json:"id" gorm:"primaryKey"`
+	URL         string     `json:"url"`
+	Type        ProxyType  `json:"type"`
+	Username    string     `json:"username,omitempty"`
+	Password    string     `json:"password,omitempty"`
+	CountryCode string     `json:"country_code,omitempty"`
+	Weight      int        `json:"weight" gorm:"default:1"`
+	LastUsed    *time.Time `json:"last_used,omitempty"`
+	Enabled     bool       `json:"enabled" gorm:"default:true"`
+	Latency     int64      `json:"latency_ms" gorm:"default:0"` // in milliseconds
+	SuccessRate float64    `json:"success_rate" gorm:"default:0"`
+	UsageCount  int64      `json:"usage_count" gorm:"default:0"`
+	ErrorCount  int64      `json:"error_count" gorm:"default:0"`
+	CreatedAt   time.Time  `json:"created_at" gorm:"autoCreateTime"`
+	UpdatedAt   time.Time  `json:"updated_at" gorm:"autoUpdateTime"`
+	Metrics     ProxyMetrics
+	Settings    ProxySettings
+	MaxRetries  int           // Maximum retry attempts
+	Timeout     time.Duration // Proxy-specific timeout
+	
+	// Backwards compatibility fields
+	IsActive   bool       // Alias for Enabled
+	LastCheck  *time.Time // Last time the proxy was validated
+}
+
+// ParseURL parses the proxy URL string into a URL object
+func (p *Proxy) ParseURL() (*url.URL, error) {
+	return url.Parse(p.URL)
+}
+
+// IsValid checks if the proxy configuration is valid
+func (p *Proxy) IsValid() bool {
+	_, err := p.ParseURL()
+	return err == nil && p.ID != "" && p.Type != ""
+}
+
+// String returns the URL as a string representation of the proxy
+func (p *Proxy) String() string {
+	return p.URL
 }
