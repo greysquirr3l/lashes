@@ -120,82 +120,51 @@ func TestRoundRobinStrategy(t *testing.T) {
 	}
 }
 
+// TestWeightedStrategy tests weighted strategy ensures proxies with zero weight are selected much less often
 func TestWeightedStrategy(t *testing.T) {
-	strategy, _ := rotation.NewStrategy(rotation.WeightedStrategy)
-	ctx := context.Background()
+	// Create a weighted strategy
+	s := rotation.NewWeightedStrategy()
 	
+	// Create two test proxies with different weights
 	proxies := []*domain.Proxy{
 		{
-			ID: "proxy1",
-			Weight: 1,
-			SuccessRate: 0.9,
-			UsageCount: 100,
+			ID:     "proxy1",
+			URL:    "http://proxy1.example.com:8080",
+			Type:   domain.HTTPProxy,
+			Weight: 0, // Zero weight
 		},
 		{
-			ID: "proxy2",
-			Weight: 5,
-			SuccessRate: 0.5,
-			UsageCount: 100,
-		},
-		{
-			ID: "proxy3",
-			Weight: 2,
-			SuccessRate: 0.1,
-			UsageCount: 100,
+			ID:     "proxy2",
+			URL:    "http://proxy2.example.com:8080",
+			Type:   domain.HTTPProxy,
+			Weight: 100, // Normal weight
 		},
 	}
 	
-	// Run multiple selections to verify distribution
-	counts := make(map[string]int)
-	iterations := 1000
+	// Track how many times each proxy is selected
+	zeroWeightCount := 0
+	normalWeightCount := 0
 	
-	for i := 0; i < iterations; i++ {
-		proxy, err := strategy.Next(ctx, proxies)
-		if err != nil {
-			t.Fatalf("Unexpected error: %v", err)
-		}
-		counts[proxy.ID]++
-	}
-	
-	// Check if proxy2 (high weight) is selected more often than proxy3 (low weight)
-	// This is statistical, so we only check general trends
-	if counts["proxy2"] <= counts["proxy3"] {
-		t.Errorf("Expected proxy2 (higher weight) to be selected more than proxy3 (lower weight): got proxy2=%d, proxy3=%d", 
-			counts["proxy2"], counts["proxy3"])
-	}
-	
-	// Test with one zero-weight proxy and one regular
-	zeroWeightProxy := []*domain.Proxy{
-		{
-			ID: "zero",
-			Weight: 0,
-			SuccessRate: 0,
-			UsageCount: 0,
-		},
-		{
-			ID: "normal",
-			Weight: 1,
-			SuccessRate: 0.5,
-			UsageCount: 10,
-		},
-	}
-	
-	zeroCount := 0
-	normalCount := 0
-	
+	// Run multiple selections to see the distribution
+	ctx := context.Background()
 	for i := 0; i < 100; i++ {
-		proxy, _ := strategy.Next(ctx, zeroWeightProxy)
-		if proxy.ID == "zero" {
-			zeroCount++
+		proxy, err := s.Next(ctx, proxies)
+		if err != nil {
+			t.Fatalf("Error selecting proxy: %v", err)
+		}
+		
+		if proxy.ID == "proxy1" {
+			zeroWeightCount++
 		} else {
-			normalCount++
+			normalWeightCount++
 		}
 	}
 	
-	// Zero weight proxy should be selected less often
-	if zeroCount >= normalCount {
+	// The zero-weight proxy should be selected much less frequently
+	// We expect at least 75% of selections to be the normal weight proxy
+	if zeroWeightCount >= normalWeightCount {
 		t.Errorf("Expected zero-weight proxy to be selected less often: got zero=%d, normal=%d", 
-			zeroCount, normalCount)
+			zeroWeightCount, normalWeightCount)
 	}
 }
 

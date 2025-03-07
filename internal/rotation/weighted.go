@@ -50,47 +50,95 @@ func (s *weightedStrategyImpl) selectRandomProxy(proxies []*domain.Proxy) (*doma
 }
 
 // Next selects the next proxy based on weight.
-// All proxies are always considered; proxies with non-positive weight are given an effective weight epsilon.
+// This implementation heavily favors proxies with positive weights.
 func (s *weightedStrategyImpl) Next(ctx context.Context, proxies []*domain.Proxy) (*domain.Proxy, error) {
 	if len(proxies) == 0 {
 		return nil, ErrNoProxiesAvailable
 	}
 
-	// Lower epsilon to 0.0001 to make zero-weight proxies far less likely.
-	const epsilon = 0.0001
-	totalWeight := 0.0
-
-	// Calculate the total effective weight for every proxy.
+	// Filter into positive-weight and zero-weight proxies
+	var positiveWeightProxies []*domain.Proxy
+	var zeroWeightProxies []*domain.Proxy
+	
+	totalPositiveWeight := 0.0
+	
 	for _, p := range proxies {
-		weight := float64(p.Weight)
-		if weight <= 0 {
-			weight = epsilon
+		if p.Weight > 0 {
+			positiveWeightProxies = append(positiveWeightProxies, p)
+			totalPositiveWeight += float64(p.Weight)
+		} else {
+			zeroWeightProxies = append(zeroWeightProxies, p)
 		}
-		totalWeight += weight
 	}
 
-	// If totalWeight is zero, fallback to a random selection.
+	// If we have positive-weight proxies, select from those 95% of the time
+	if len(positiveWeightProxies) > 0 {
+		// Use crypto random to determine if we should pick from positive-weight proxies
+		r, err := cryptoRandInt(100)
+		if err != nil {
+			return nil, err
+		}
+		
+		// If r < 95, select from positive-weight proxies (95% chance)
+		if r < 95 {
+			return s.selectFromWeightedList(positiveWeightProxies, totalPositiveWeight)
+		}
+		
+		// Otherwise, fall through to select from zero-weight proxies if available
+	}
+	
+	// If we reach here, either:
+	// 1. All proxies have zero weight, or
+	// 2. We chose to select from zero-weight proxies (5% chance)
+	
+	if len(zeroWeightProxies) > 0 {
+		// Select randomly from zero-weight proxies
+		randomIndex, err := cryptoRandInt(len(zeroWeightProxies))
+		if err != nil {
+			return nil, err
+		}
+		return zeroWeightProxies[randomIndex], nil
+	}
+	
+	// If no zero-weight proxies but we have positive-weight proxies
+	if len(positiveWeightProxies) > 0 {
+		return s.selectFromWeightedList(positiveWeightProxies, totalPositiveWeight)
+	}
+	
+	// If we get here, something is wrong with our logic - pick any proxy
+	return proxies[0], nil
+}
+
+// selectFromWeightedList selects a proxy from a list using weighted random selection
+func (s *weightedStrategyImpl) selectFromWeightedList(proxies []*domain.Proxy, totalWeight float64) (*domain.Proxy, error) {
+	if len(proxies) == 0 {
+		return nil, ErrNoProxiesAvailable
+	}
+	
+	// If all weights are zero, select randomly
 	if totalWeight == 0 {
 		return s.selectRandomProxy(proxies)
 	}
-
+	
 	r, err := cryptoRandFloat64(totalWeight)
 	if err != nil {
 		return nil, err
 	}
-
+	
 	sum := 0.0
-	// Select a proxy based on the weighted random number.
 	for _, p := range proxies {
 		weight := float64(p.Weight)
+		// Skip proxies with zero weight
 		if weight <= 0 {
-			weight = epsilon
+			continue
 		}
+		
 		sum += weight
 		if r < sum {
 			return p, nil
 		}
 	}
-
+	
+	// Fallback to last proxy with positive weight
 	return proxies[len(proxies)-1], nil
 }
