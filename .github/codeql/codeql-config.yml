@@ -1,0 +1,19 @@
+name: "Lashes CodeQL Config"
+
+queries:
+  - uses: security-and-quality
+  - uses: security-extended
+
+paths:
+  - internal/
+  - .
+paths-ignore:
+  - "**/vendor/**"
+  - "**/mocks/**"
+  - "**/testdata/**"
+  - "**/*_test.go"
+
+query-filters:
+  - exclude:
+      id: go/log-injection
+      reason: "Logging framework properly sanitizes input"

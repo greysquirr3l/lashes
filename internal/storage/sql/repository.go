@@ -39,7 +39,7 @@ type sqlRepository struct {
 	timeout time.Duration
 }
 
-// Call init() in the constructor to ensure tables are created
+// NewSQLRepository creates a new SQL-based repository
 func NewSQLRepository(db *sql.DB, timeout time.Duration) repository.ProxyRepository {
 	if timeout == 0 {
 		timeout = 30 * time.Second
@@ -49,18 +49,24 @@ func NewSQLRepository(db *sql.DB, timeout time.Duration) repository.ProxyReposit
 		timeout: timeout,
 	}
 
-	// Call init to create the tables if needed
-	_ = repo.init() // Ignore error for simplicity, or handle it properly
+	// Initialize tables and check for errors
+	if err := repo.init(); err != nil {
+		// Log the error but don't fail - tables might already exist
+		// In a production system, consider adding proper logging here
+		fmt.Printf("Warning: repository initialization error: %v\n", err)
+	}
 
 	return repo
 }
 
+// init creates the necessary database tables if they don't exist
 func (r *sqlRepository) init() error {
 	_, err := r.db.Exec(createTableSQL)
 	return err
 }
 
 func (r *sqlRepository) Create(ctx context.Context, proxy *domain.Proxy) error {
+	// Create a timeout context that inherits from the provided context
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
@@ -105,10 +111,11 @@ func (r *sqlRepository) Create(ctx context.Context, proxy *domain.Proxy) error {
 }
 
 func (r *sqlRepository) Delete(ctx context.Context, id string) error {
+	// Create a timeout context that inherits from the provided context
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
-	query := `DELETE FROM proxies WHERE id = $1`
+	query := `DELETE FROM proxies WHERE id = ?`
 
 	result, err := r.db.ExecContext(ctx, query, id)
 	if err != nil {
@@ -128,6 +135,7 @@ func (r *sqlRepository) Delete(ctx context.Context, id string) error {
 }
 
 func (r *sqlRepository) GetByID(ctx context.Context, id string) (*domain.Proxy, error) {
+	// Create a timeout context that inherits from the provided context
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
@@ -185,6 +193,7 @@ func (r *sqlRepository) GetByID(ctx context.Context, id string) (*domain.Proxy, 
 }
 
 func (r *sqlRepository) GetNext(ctx context.Context) (*domain.Proxy, error) {
+	// Create a timeout context that inherits from the provided context
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
@@ -217,11 +226,11 @@ func (r *sqlRepository) GetNext(ctx context.Context) (*domain.Proxy, error) {
 		return nil, fmt.Errorf("failed to get next proxy: %w", err)
 	}
 
-	// Fixed: assign URL string directly
+	// Set URL directly
 	proxy.URL = urlStr
 
 	// Update last used time
-	updateQuery := `UPDATE proxies SET last_used = $1 WHERE id = $2`
+	updateQuery := `UPDATE proxies SET last_used = ? WHERE id = ?`
 	_, err = r.db.ExecContext(ctx, updateQuery, time.Now(), proxy.ID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to update last_used time: %w", err)
@@ -231,6 +240,7 @@ func (r *sqlRepository) GetNext(ctx context.Context) (*domain.Proxy, error) {
 }
 
 func (r *sqlRepository) List(ctx context.Context) ([]*domain.Proxy, error) {
+	// Create a timeout context that inherits from the provided context
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
@@ -268,7 +278,7 @@ func (r *sqlRepository) List(ctx context.Context) ([]*domain.Proxy, error) {
 			return nil, fmt.Errorf("failed to scan proxy: %w", err)
 		}
 
-		// Fixed: assign URL string directly
+		// Set URL directly
 		proxy.URL = urlStr
 		proxies = append(proxies, &proxy)
 	}
@@ -281,6 +291,7 @@ func (r *sqlRepository) List(ctx context.Context) ([]*domain.Proxy, error) {
 }
 
 func (r *sqlRepository) Update(ctx context.Context, proxy *domain.Proxy) error {
+	// Create a timeout context that inherits from the provided context
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 

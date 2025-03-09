@@ -35,12 +35,24 @@ func isMySQLConstraintError(err error) bool {
 
 // IsConstraintViolation returns true if the error is a database constraint violation
 func IsConstraintViolation(err error) bool {
-	return isSQLiteConstraintError(err) || 
-	       isPostgresConstraintError(err) || 
-	       isMySQLConstraintError(err)
+	return isSQLiteConstraintError(err) ||
+		isPostgresConstraintError(err) ||
+		isMySQLConstraintError(err)
 }
 
 // IsNoRowsError returns true if the error is a "no rows found" error
 func IsNoRowsError(err error) bool {
 	return errors.Is(err, sql.ErrNoRows)
 }
+
+// Common errors
+var (
+	// ErrInvalidProxy is returned when a proxy validation fails
+	ErrInvalidProxy = errors.New("invalid proxy configuration")
+
+	// ErrDuplicateID is returned when attempting to create a proxy with an existing ID
+	ErrDuplicateID = errors.New("proxy with this ID already exists")
+
+	// ErrNotImplemented is returned for methods not yet implemented
+	ErrNotImplemented = errors.New("method not implemented")
+)

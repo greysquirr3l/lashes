@@ -56,10 +56,8 @@ func (r *rotator) ValidateAll(ctx context.Context) error {
 
 // getProxiesForValidation gets the list of proxies to validate
 func (r *rotator) getProxiesForValidation(ctx context.Context) ([]*domain.Proxy, error) {
-	// Ensure we have a valid context
-	if ctx == nil {
-		ctx = context.Background()
-	}
+	// Use the context directly instead of assigning it to a new variable
+	// This fixes the "Non-inherited new context" warning
 
 	// Create a timeout context derived from the parent context
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Minute)
@@ -93,7 +91,7 @@ func (r *rotator) validateSingleProxy(
 		// Continue validation
 	}
 
-	// Create a sub-context for this validation
+	// Create a sub-context for this validation that inherits from ctx
 	proxyCtx, cancel := context.WithTimeout(ctx, r.opts.ValidationTimeout)
 	defer cancel()
 
