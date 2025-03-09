@@ -2,7 +2,7 @@ package lashes
 
 const (
 	// Version is the current version of the lashes library
-	Version = "v0.1.0"
+	Version = "v0.1.8"
 
 	// MinGoVersion is the minimum supported Go version
 	MinGoVersion = "1.24.0"
