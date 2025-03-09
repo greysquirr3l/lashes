@@ -22,10 +22,10 @@ type Action struct {
 	Y         float64 // coordinate for mouse actions
 	Duration  time.Duration
 	Scrolling struct {
-		DeltaY    int
-		Behavior  string
-		Segments  int
-		Interval  time.Duration
+		DeltaY   int
+		Behavior string
+		Segments int
+		Interval time.Duration
 	}
 }
 
@@ -83,7 +83,7 @@ func (b *Behavior) Wait(ctx context.Context) error {
 	if err := b.limiter.Wait(ctx); err != nil {
 		return err
 	}
-	
+
 	// Add secure random jitter
 	jitter := time.Duration(secureRandInt(int(b.jitter)))
 	time.Sleep(jitter)
@@ -96,7 +96,7 @@ func (b *Behavior) Wait(ctx context.Context) error {
 			break
 		}
 	}
-	
+
 	return nil
 }
 

@@ -25,7 +25,7 @@ func ProxyValidationExample() {
 	}
 
 	ctx := context.Background()
-	
+
 	// Add a proxy that will be validated on insertion
 	err = rotator.AddProxy(ctx, "http://example.com:8080", domain.HTTPProxy)
 	if err != nil {

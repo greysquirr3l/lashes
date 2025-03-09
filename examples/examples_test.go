@@ -26,7 +26,7 @@ func TestExampleFunctions(t *testing.T) {
 		return originalParse("http://example.com:8080")
 	})
 	defer resetURLParser()
-	
+
 	// Setup mock client creator for all tests
 	resetClient := client.SetClientCreator(func(proxy *domain.Proxy, options client.Options) (*http.Client, error) {
 		return mock.CreateMockClient(proxy, mockResp)

@@ -10,7 +10,7 @@ import (
 
 // MockValidator provides a controllable validator implementation for testing
 type MockValidator struct {
-	ValidateFunc          func(ctx context.Context, proxy *domain.Proxy) (bool, time.Duration, error)
+	ValidateFunc           func(ctx context.Context, proxy *domain.Proxy) (bool, time.Duration, error)
 	ValidateWithTargetFunc func(ctx context.Context, proxy *domain.Proxy, targetURL string) (bool, time.Duration, error)
 }
 

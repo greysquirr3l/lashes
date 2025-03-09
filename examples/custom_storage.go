@@ -29,9 +29,9 @@ func CustomStorageExample() {
 	// Initialize with custom storage options
 	opts := lashes.DefaultOptions()
 	// In a real example, we would configure storage options here
-	
+
 	rotator, err := lashes.New(opts)
-	if (err != nil) {
+	if err != nil {
 		log.Fatalf("Failed to create rotator: %v", err)
 	}
 

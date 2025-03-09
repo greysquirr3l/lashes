@@ -40,11 +40,11 @@ func ErrorHandlingExample() {
 	if err != nil {
 		log.Fatalf("Failed to get proxy: %v", err)
 	}
-	
+
 	fmt.Printf("Using proxy: %s\n", proxy.URL)
-	
+
 	// Example 3: Validate a proxy
 	isValid, latency, err := rotator.ValidateProxy(ctx, proxy, "http://example.com/test")
-	fmt.Printf("Proxy validation result: valid=%v, latency=%v, error=%v\n", 
+	fmt.Printf("Proxy validation result: valid=%v, latency=%v, error=%v\n",
 		isValid, latency, err)
 }

@@ -13,7 +13,7 @@ import (
 func BasicUsageExample() {
 	// Initialize with default options
 	rotator, err := lashes.New(lashes.DefaultOptions())
-	if (err != nil) {
+	if err != nil {
 		log.Fatalf("Failed to create rotator: %v", err)
 	}
 

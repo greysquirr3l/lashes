@@ -39,7 +39,7 @@ func NewValidator(config Config) Validator {
 	if config.MaxLatency == 0 {
 		config.MaxLatency = 5 * time.Second // Default max acceptable latency
 	}
-	
+
 	return &validator{
 		config: config,
 	}
@@ -55,7 +55,7 @@ func (v *validator) ValidateWithTarget(ctx context.Context, proxy *domain.Proxy,
 	// Create a context with timeout
 	ctx, cancel := context.WithTimeout(ctx, v.config.Timeout)
 	defer cancel()
-	
+
 	// Create an HTTP client using the proxy
 	httpClient, err := client.NewClient(proxy, client.Options{
 		Timeout:         v.config.Timeout,
@@ -66,23 +66,23 @@ func (v *validator) ValidateWithTarget(ctx context.Context, proxy *domain.Proxy,
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to create HTTP client: %w", err)
 	}
-	
+
 	// Prepare the request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
 	if err != nil {
 		return false, 0, fmt.Errorf("failed to create request: %w", err)
 	}
-	
+
 	// Execute the request and measure response time
 	startTime := time.Now()
 	resp, err := httpClient.Do(req)
 	latency := time.Since(startTime)
-	
+
 	// If request failed, return error
 	if err != nil {
 		return false, latency, fmt.Errorf("request failed: %w", err)
 	}
-	
+
 	// Ensure response body is closed properly and capture any close errors
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
@@ -94,17 +94,17 @@ func (v *validator) ValidateWithTarget(ctx context.Context, proxy *domain.Proxy,
 			}
 		}
 	}()
-	
+
 	// Verify the response status code
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return false, latency, fmt.Errorf("invalid status code: %d", resp.StatusCode)
 	}
-	
+
 	// Check if latency is acceptable
 	if latency > v.config.MaxLatency {
 		return false, latency, fmt.Errorf("latency too high: %s", latency)
 	}
-	
+
 	// Proxy validation successful
 	return true, latency, nil
 }

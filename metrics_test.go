@@ -159,11 +159,11 @@ func TestMetricsCollector(t *testing.T) {
 		before := time.Now()
 		metrics3, err := collector.GetProxyMetrics(ctx, testProxy.ID)
 		cacheFetchTime := time.Since(before)
-		
+
 		if err != nil {
 			t.Fatalf("GetProxyMetrics failed: %v", err)
 		}
-		
+
 		// Make sure the cache retrieval is very fast
 		if cacheFetchTime > 5*time.Millisecond {
 			t.Logf("Cache fetch took longer than expected: %v", cacheFetchTime)

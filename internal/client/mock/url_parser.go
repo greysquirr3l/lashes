@@ -11,7 +11,7 @@ type URLParserFunc func(string) (*url.URL, error)
 var (
 	// defaultURLParser holds the current URL parsing function
 	defaultURLParser URLParserFunc = url.Parse
-	
+
 	// urlParserMu is a mutex to protect access to defaultURLParser
 	urlParserMu sync.RWMutex
 )
@@ -21,7 +21,7 @@ func ParseURL(rawURL string) (*url.URL, error) {
 	urlParserMu.RLock()
 	parser := defaultURLParser
 	urlParserMu.RUnlock()
-	
+
 	return parser(rawURL)
 }
 
@@ -31,7 +31,7 @@ func SetURLParser(fn URLParserFunc) func() {
 	original := defaultURLParser
 	defaultURLParser = fn
 	urlParserMu.Unlock()
-	
+
 	// Return function to restore the original parser
 	return func() {
 		urlParserMu.Lock()

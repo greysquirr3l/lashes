@@ -17,18 +17,18 @@ import (
 func TestValidateProxy(t *testing.T) {
 	// Create test proxy
 	proxy := &domain.Proxy{
-		ID:  "test-proxy",
-		URL: "http://example.com:8080",
+		ID:   "test-proxy",
+		URL:  "http://example.com:8080",
 		Type: domain.HTTPProxy,
 	}
 
 	tests := []struct {
-		name           string
-		mockStatus     int
-		mockDelay      time.Duration
-		maxLatency     time.Duration
-		expectValid    bool
-		expectError    bool
+		name        string
+		mockStatus  int
+		mockDelay   time.Duration
+		maxLatency  time.Duration
+		expectValid bool
+		expectError bool
 	}{
 		{
 			name:        "Successful validation",
@@ -65,7 +65,7 @@ func TestValidateProxy(t *testing.T) {
 				Header:     make(http.Header),
 			}
 
-				// Setup mock client creator for this test
+			// Setup mock client creator for this test
 			resetClient := client.SetClientCreator(func(proxy *domain.Proxy, options client.Options) (*http.Client, error) {
 				return &http.Client{
 					Transport: &mock.MockTransport{
@@ -83,7 +83,7 @@ func TestValidateProxy(t *testing.T) {
 				TestURL:    "http://test-url.com",
 				MaxLatency: tt.maxLatency,
 			})
-			
+
 			// Test validation
 			ctx := context.Background()
 			valid, latency, err := validator.Validate(ctx, proxy)

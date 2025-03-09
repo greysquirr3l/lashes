@@ -90,47 +90,47 @@ func (r *CustomProxyRepository) List(ctx context.Context) ([]*domain.Proxy, erro
 // CustomStorageImplementationExample demonstrates how to use a custom repository implementation
 func CustomStorageImplementationExample() {
 	repo := NewCustomProxyRepository()
-	
+
 	ctx := context.Background()
-	
+
 	// Add some example proxies - use minimal fields that are guaranteed to exist
 	now := time.Now()
 	nowPtr := &now
-	
+
 	proxy1 := &domain.Proxy{
 		URL:       "http://example1.com:8080",
 		Type:      domain.HTTPProxy,
 		LastUsed:  nowPtr,
 		CreatedAt: now,
 	}
-	
+
 	proxy2 := &domain.Proxy{
 		URL:       "http://example2.com:8080",
 		Type:      domain.SOCKS5Proxy,
 		LastUsed:  nowPtr,
 		CreatedAt: now,
 	}
-	
+
 	// Create proxies
 	if err := repo.Create(ctx, proxy1); err != nil {
 		fmt.Printf("Failed to create proxy: %v\n", err)
 		return
 	}
-	
+
 	if err := repo.Create(ctx, proxy2); err != nil {
 		fmt.Printf("Failed to create proxy: %v\n", err)
 		return
 	}
-	
+
 	// List all proxies
 	proxies, err := repo.List(ctx)
 	if err != nil {
 		fmt.Printf("Failed to list proxies: %v\n", err)
 		return
 	}
-	
+
 	fmt.Printf("Custom repository has %d proxies\n", len(proxies))
-	
+
 	for _, p := range proxies {
 		fmt.Printf("- %s (%s)\n", p.URL, p.Type)
 	}

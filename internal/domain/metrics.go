@@ -24,7 +24,7 @@ func NewMetrics() *Metrics {
 func (m *Metrics) RecordSuccess(statusCode int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.SuccessCount++
 	m.TotalRequests++
 	m.LastStatusCode = statusCode
@@ -34,7 +34,7 @@ func (m *Metrics) RecordSuccess(statusCode int) {
 func (m *Metrics) RecordFailure(statusCode int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	m.FailureCount++
 	m.TotalRequests++
 	m.LastStatusCode = statusCode
@@ -44,12 +44,12 @@ func (m *Metrics) RecordFailure(statusCode int) {
 func (m *Metrics) IncrementLatency(latency time.Duration) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	if m.TotalRequests == 0 {
 		m.AvgLatency = latency
 		return
 	}
-	
+
 	// Calculate new average: ((avg * count) + new) / (count + 1)
 	total := m.AvgLatency.Nanoseconds() * m.TotalRequests
 	m.AvgLatency = time.Duration((total + latency.Nanoseconds()) / (m.TotalRequests + 1))
@@ -59,10 +59,10 @@ func (m *Metrics) IncrementLatency(latency time.Duration) {
 func (m *Metrics) GetSuccessRate() float64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if m.TotalRequests == 0 {
 		return 0
 	}
-	
+
 	return float64(m.SuccessCount) / float64(m.TotalRequests)
 }

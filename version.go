@@ -1,11 +1,11 @@
 package lashes
 
 const (
-    // Version is the current version of the lashes library
-    Version = "v0.1.0"
-    
-    // MinGoVersion is the minimum supported Go version
-    MinGoVersion = "1.24.0"
+	// Version is the current version of the lashes library
+	Version = "v0.1.0"
+
+	// MinGoVersion is the minimum supported Go version
+	MinGoVersion = "1.24.0"
 )
 
 // Build information, populated during build using -ldflags:

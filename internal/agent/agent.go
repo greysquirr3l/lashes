@@ -7,14 +7,14 @@ import (
 
 // Common browser versions
 var (
-    chromeVersions  = []string{"120.0.0", "121.0.0", "122.0.0"}
-    firefoxVersions = []string{"122.0", "123.0", "124.0"}
-    safariVersions  = []string{"17.2", "17.1", "16.6"}
-    osVersions      = []string{
-        "Windows NT 10.0; Win64; x64",
-        "Macintosh; Intel Mac OS X 10_15_7",
-        "X11; Linux x86_64",
-    }
+	chromeVersions  = []string{"120.0.0", "121.0.0", "122.0.0"}
+	firefoxVersions = []string{"122.0", "123.0", "124.0"}
+	safariVersions  = []string{"17.2", "17.1", "16.6"}
+	osVersions      = []string{
+		"Windows NT 10.0; Win64; x64",
+		"Macintosh; Intel Mac OS X 10_15_7",
+		"X11; Linux x86_64",
+	}
 )
 
 // GetRandomUserAgent returns a randomly constructed user agent using crypto/rand.
@@ -25,7 +25,7 @@ func GetRandomUserAgent() string {
 		browserType = 0
 	}
 	os := secureRandomChoice(osVersions)
-	
+
 	switch browserType {
 	case 0: // Chrome
 		chromeVer := secureRandomChoice(chromeVersions)
@@ -60,5 +60,5 @@ func secureRandInt(max int) (int, error) {
 
 // GetLocation is a convenience function that calls GetRandomLocation
 func GetLocation() GeoLocation {
-    return GetRandomLocation()
+	return GetRandomLocation()
 }

@@ -56,7 +56,7 @@ func TestProxyValidation(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	
+
 	// Add test proxy
 	err = rotator.AddProxy(ctx, "http://example.com:8080", domain.HTTPProxy)
 	if err != nil {
@@ -73,7 +73,7 @@ func TestProxyValidation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get proxy after validation: %v", err)
 	}
-	
+
 	if proxy.URL != "http://example.com:8080" {
 		t.Errorf("Expected proxy URL 'http://example.com:8080', got '%s'", proxy.URL)
 	}

@@ -30,7 +30,7 @@ func TestErrorHandling(t *testing.T) {
 			// Return a clear error for invalid URLs
 			return nil, errors.New("invalid URL format")
 		}
-		
+
 		// Pass through valid URLs to the real parser
 		parsedURL, _ := url.Parse("http://example.com:8080")
 		return parsedURL, nil
@@ -50,7 +50,7 @@ func TestErrorHandling(t *testing.T) {
 	// Setup rotator with test options
 	opts := lashes.DefaultOptions()
 	opts.ValidateOnStart = false
-	
+
 	rotator, err := lashes.New(opts)
 	if err != nil {
 		t.Fatalf("Failed to create rotator: %v", err)

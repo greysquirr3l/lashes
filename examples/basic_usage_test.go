@@ -46,7 +46,7 @@ func TestBasicUsageExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to get proxy: %v", err)
 	}
-	
+
 	if proxy.URL != "http://example.com:8080" {
 		t.Errorf("Expected proxy URL 'http://example.com:8080', got '%s'", proxy.URL)
 	}

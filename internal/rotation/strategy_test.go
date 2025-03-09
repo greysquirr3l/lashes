@@ -76,7 +76,7 @@ func TestStrategyImplementations(t *testing.T) {
 			}
 
 			ctx := context.Background()
-			
+
 			// Test with empty list
 			_, err = strategy.Next(ctx, nil)
 			if err == nil {
@@ -100,13 +100,13 @@ func TestStrategyImplementations(t *testing.T) {
 func TestRoundRobinStrategy(t *testing.T) {
 	strategy, _ := rotation.NewStrategy(rotation.RoundRobinStrategy)
 	ctx := context.Background()
-	
+
 	proxies := []*domain.Proxy{
 		{ID: "proxy1"},
 		{ID: "proxy2"},
 		{ID: "proxy3"},
 	}
-	
+
 	// The strategy should iterate through all proxies in sequence
 	for i := 0; i < len(proxies)*2; i++ {
 		proxy, err := strategy.Next(ctx, proxies)
@@ -124,7 +124,7 @@ func TestRoundRobinStrategy(t *testing.T) {
 func TestWeightedStrategy(t *testing.T) {
 	// Create a weighted strategy
 	s := rotation.NewWeightedStrategy()
-	
+
 	// Create two test proxies with different weights
 	proxies := []*domain.Proxy{
 		{
@@ -140,11 +140,11 @@ func TestWeightedStrategy(t *testing.T) {
 			Weight: 100, // Normal weight
 		},
 	}
-	
+
 	// Track how many times each proxy is selected
 	zeroWeightCount := 0
 	normalWeightCount := 0
-	
+
 	// Run multiple selections to see the distribution
 	ctx := context.Background()
 	for i := 0; i < 100; i++ {
@@ -152,18 +152,18 @@ func TestWeightedStrategy(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error selecting proxy: %v", err)
 		}
-		
+
 		if proxy.ID == "proxy1" {
 			zeroWeightCount++
 		} else {
 			normalWeightCount++
 		}
 	}
-	
+
 	// The zero-weight proxy should be selected much less frequently
 	// We expect at least 75% of selections to be the normal weight proxy
 	if zeroWeightCount >= normalWeightCount {
-		t.Errorf("Expected zero-weight proxy to be selected less often: got zero=%d, normal=%d", 
+		t.Errorf("Expected zero-weight proxy to be selected less often: got zero=%d, normal=%d",
 			zeroWeightCount, normalWeightCount)
 	}
 }
@@ -171,81 +171,81 @@ func TestWeightedStrategy(t *testing.T) {
 func TestLeastUsedStrategy(t *testing.T) {
 	strategy, _ := rotation.NewStrategy(rotation.LeastUsedStrategy)
 	ctx := context.Background()
-	
+
 	now := time.Now()
 	earlier := now.Add(-time.Hour)
-	
+
 	// Create proxies with different usage counts
 	proxies := []*domain.Proxy{
 		{
-			ID: "high-usage",
+			ID:         "high-usage",
 			UsageCount: 100,
-			LastUsed: &now,
+			LastUsed:   &now,
 		},
 		{
-			ID: "medium-usage",
+			ID:         "medium-usage",
 			UsageCount: 50,
-			LastUsed: &now,
+			LastUsed:   &now,
 		},
 		{
-			ID: "low-usage",
+			ID:         "low-usage",
 			UsageCount: 10,
-			LastUsed: &now,
+			LastUsed:   &now,
 		},
 	}
-	
+
 	// The least used proxy should be selected
 	proxy, err := strategy.Next(ctx, proxies)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	
+
 	if proxy.ID != "low-usage" {
 		t.Errorf("Expected least used proxy (low-usage), got %s", proxy.ID)
 	}
-	
+
 	// Test same usage count but different last used time
 	sameCountProxies := []*domain.Proxy{
 		{
-			ID: "older",
+			ID:         "older",
 			UsageCount: 10,
-			LastUsed: &earlier,
+			LastUsed:   &earlier,
 		},
 		{
-			ID: "newer",
+			ID:         "newer",
 			UsageCount: 10,
-			LastUsed: &now,
+			LastUsed:   &now,
 		},
 	}
-	
+
 	proxy, err = strategy.Next(ctx, sameCountProxies)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	
+
 	if proxy.ID != "older" {
 		t.Errorf("Expected older proxy to be selected when usage counts are equal, got %s", proxy.ID)
 	}
-	
+
 	// Test with nil LastUsed
 	nilLastUsedProxies := []*domain.Proxy{
 		{
-			ID: "with-last-used",
+			ID:         "with-last-used",
 			UsageCount: 10,
-			LastUsed: &now,
+			LastUsed:   &now,
 		},
 		{
-			ID: "nil-last-used",
+			ID:         "nil-last-used",
 			UsageCount: 10,
-			LastUsed: nil,
+			LastUsed:   nil,
 		},
 	}
-	
+
 	proxy, err = strategy.Next(ctx, nilLastUsedProxies)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
-	
+
 	if proxy.ID != "nil-last-used" {
 		t.Errorf("Expected proxy with nil LastUsed to be selected, got %s", proxy.ID)
 	}

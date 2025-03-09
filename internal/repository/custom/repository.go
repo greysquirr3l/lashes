@@ -92,11 +92,11 @@ func (r *ProxyRepository) GetNext(ctx context.Context) (*domain.Proxy, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	if len(proxies) == 0 {
 		return nil, repository.ErrProxyNotFound
 	}
-	
+
 	// Simple implementation - just return the first proxy
 	return proxies[0], nil
 }

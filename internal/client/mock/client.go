@@ -43,14 +43,14 @@ func CreateMockClient(proxy *domain.Proxy, opts ...interface{}) (*http.Client, e
 		Body:       http.NoBody,
 		Header:     make(http.Header),
 	}
-	
+
 	// Allow customization through opts if needed
 	for _, opt := range opts {
 		if resp, ok := opt.(*http.Response); ok {
 			mockResp = resp
 		}
 	}
-	
+
 	return NewMockClient(mockResp, 10*time.Millisecond), nil
 }
 
