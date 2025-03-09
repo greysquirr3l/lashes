@@ -12,7 +12,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Logo image in README.md
 - Test coverage badge
 
-## [0.1.1] - 2023-11-10
+## [0.1.8] - 2025-03-09
+
+### Fixed
+
+- Circuit breaker state transitions now properly handle half-open state
+- Fixed state transitions from half-open to closed after success
+- Fixed state transitions from half-open to open after failure
+- Improved circuit breaker testing to better validate state transitions
+
+### Security
+
+- Added stronger security warnings for TLS certificate validation bypass
+- Enhanced security documentation for InsecureSkipVerify usage
+- Removed hardcoded credentials from example code
+- Improved input validation throughout the codebase
+
+### Changed
+
+- Restructured README.md with clearer documentation and examples
+- Improved code organization in client.go and breaker.go
+- Reduced unused code to improve maintainability
+
+### Removed
+
+- Eliminated several unused functions flagged by linters
+- Removed code duplication in the repository implementations
+
+## [0.1.7]
+
+### Added
+
+- Circuit breaker pattern implementation for proxy failure handling
+- New weighted rotation strategy using cryptographically secure randomization
+- Support for in-memory metrics caching to improve performance
+
+### Changed
+
+- Improved proxy validation with better error handling
+- Enhanced metrics collection with more detailed statistics
+- Updated documentation with examples for new features
+
+### Fixed
+
+- Race condition in proxy rotation when using concurrent requests
+- Memory leak in HTTP client creation
+- Timeout handling in validation requests
+
+## [0.1.6]
+
+### Added
+
+- Health check system for monitoring proxy status
+- Support for PostgreSQL backend storage
+- Rate limiting capabilities
+
+### Changed
+
+- Improved error handling with structured error types
+- Better performance in rotation strategies
+- Updated documentation with usage examples
+
+## [0.1.5]
+
+### Added
+
+- Initial public release
+- Support for HTTP, SOCKS4, and SOCKS5 proxies
+- Multiple rotation strategies (round-robin, random)
+- In-memory and SQLite storage options
+- Basic proxy validation
+
+## [0.1.1]
 
 ### Security
 
@@ -41,7 +112,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added more examples demonstrating rotation strategies
 - Comprehensive test suite for all rotation strategies
 
-## [0.1.0] - 2023-11-01
+## [0.1.0]
 
 ### Added
 

@@ -10,26 +10,13 @@ import (
 	"github.com/greysquirr3l/lashes/internal/storage"
 )
 
-// Storage types and options
-type StorageType string
-
-const (
-	Memory   StorageType = "memory"
-	SQLite   StorageType = "sqlite"
-	MySQL    StorageType = "mysql"
-	Postgres StorageType = "postgres"
-)
-
-type StorageOptions struct {
-	Type     StorageType
-	Database storage.Options
-}
+// StorageOptions is deprecated, use storage.Options instead
+type StorageOptions = storage.Options
 
 // Public type aliases
 type (
 	Proxy     = domain.Proxy
 	ProxyType = domain.ProxyType
-	// Completely remove this line - don't create a ProxyMetrics alias
 )
 
 // Public constants
@@ -37,12 +24,14 @@ const (
 	HTTP   = domain.HTTP
 	SOCKS4 = domain.SOCKS4
 	SOCKS5 = domain.SOCKS5
+)
 
-	// Rotation strategies
-	RoundRobin = rotation.RoundRobin
-	Random     = rotation.Random
-	Weighted   = rotation.Weighted
-	LeastUsed  = rotation.LeastUsed
+// Storage type aliases for backward compatibility
+const (
+	Memory   = storage.Memory
+	SQLite   = storage.SQLite
+	MySQL    = storage.MySQL
+	Postgres = storage.Postgres
 )
 
 // ProxyRotator represents the main interface for proxy rotation operations.
@@ -120,8 +109,8 @@ func New(opts Options) (ProxyRotator, error) {
 // Uses in-memory storage and round-robin rotation strategy.
 func DefaultOptions() Options {
 	return Options{
-		Storage:           nil, // Use in-memory storage by default
-		Strategy:          rotation.RoundRobin,
+		Storage:           nil,                         // Use in-memory storage by default
+		Strategy:          rotation.RoundRobinStrategy, // Use non-deprecated constant
 		ValidationTimeout: time.Second * 10,
 		ValidateOnStart:   true,
 		TestURL:           "https://api.ipify.org?format=json",
@@ -129,4 +118,19 @@ func DefaultOptions() Options {
 		RetryDelay:        time.Second,
 		RequestTimeout:    time.Second * 30,
 	}
+}
+
+// ProxyMetrics contains performance metrics for a single proxy
+type ProxyMetrics struct {
+	ProxyID     string        `json:"proxy_id"`
+	URL         string        `json:"url"`
+	Type        string        `json:"type"`
+	SuccessRate float64       `json:"success_rate"`
+	TotalCalls  int64         `json:"total_calls"`
+	AvgLatency  time.Duration `json:"avg_latency_ms"`
+	MinLatency  time.Duration `json:"min_latency_ms"`
+	MaxLatency  time.Duration `json:"max_latency_ms"`
+	LastUsed    time.Time     `json:"last_used"`
+	ErrorCount  int64         `json:"error_count"`
+	IsActive    bool          `json:"is_active"` // Keep this for API compatibility
 }

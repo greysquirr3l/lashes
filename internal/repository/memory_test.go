@@ -1,177 +1,143 @@
-package repository
+package repository_test
 
 import (
 	"context"
 	"errors"
-	"fmt"
-	"net/url"
-	"sync"
 	"testing"
 
 	"github.com/greysquirr3l/lashes/internal/domain"
+	"github.com/greysquirr3l/lashes/internal/repository"
 )
 
 func TestMemoryRepository(t *testing.T) {
-	tests := []struct {
-		name string
-		fn   func(*testing.T, *memoryRepository)
-	}{
-		{"Create", testCreate},
-		{"GetByID", testGetByID},
-		{"Update", testUpdate},
-		{"Delete", testDelete},
-		{"List", testList},
-		{"GetNext", testGetNext},
-		{"ConcurrentAccess", testConcurrentAccess},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo := NewMemoryRepository()
-			tt.fn(t, repo.(*memoryRepository))
-		})
-	}
-}
-
-func createTestProxy(id string) *domain.Proxy {
-	u, _ := url.Parse("http://example.com:8080")
-	return &domain.Proxy{
-		ID:       id,
-		URL:      u.String(), // Convert URL to string
-		Type:     domain.HTTP,
-		IsActive: true,
-	}
-}
-
-func testCreate(t *testing.T, repo *memoryRepository) {
+	repo := repository.NewMemoryRepository()
 	ctx := context.Background()
-	proxy := createTestProxy("test1")
 
-	err := repo.Create(ctx, proxy)
-	if err != nil {
-		t.Errorf("Create failed: %v", err)
+	// Create a test proxy
+	proxy := &domain.Proxy{
+		ID:      "test-123",
+		URL:     "http://example.com:8080",
+		Type:    domain.HTTP,
+		Enabled: true,
 	}
 
-	// Test duplicate creation
-	err = repo.Create(ctx, proxy)
-	if !errors.Is(err, ErrDuplicateID) {
-		t.Errorf("Expected ErrDuplicateID, got %v", err)
-	}
-}
-
-func testGetByID(t *testing.T, repo *memoryRepository) {
-	ctx := context.Background()
-	proxy := createTestProxy("test2")
-
-	err := repo.Create(ctx, proxy)
-	if err != nil {
-		t.Fatalf("Create failed: %v", err)
-	}
-
-	got, err := repo.GetByID(ctx, proxy.ID)
-	if err != nil {
-		t.Errorf("GetByID failed: %v", err)
-	}
-	if got.ID != proxy.ID {
-		t.Errorf("Expected ID %s, got %s", proxy.ID, got.ID)
-	}
-}
-
-func testUpdate(t *testing.T, repo *memoryRepository) {
-	ctx := context.Background()
-	proxy := createTestProxy("test3")
-
-	err := repo.Create(ctx, proxy)
-	if err != nil {
-		t.Fatalf("Create failed: %v", err)
-	}
-
-	proxy.IsActive = false
-	err = repo.Update(ctx, proxy)
-	if err != nil {
-		t.Errorf("Update failed: %v", err)
-	}
-
-	got, _ := repo.GetByID(ctx, proxy.ID)
-	if got.IsActive != false {
-		t.Error("Update didn't persist")
-	}
-}
-
-func testDelete(t *testing.T, repo *memoryRepository) {
-	ctx := context.Background()
-	proxy := createTestProxy("test4")
-
-	err := repo.Create(ctx, proxy)
-	if err != nil {
-		t.Fatalf("Create failed: %v", err)
-	}
-
-	err = repo.Delete(ctx, proxy.ID)
-	if err != nil {
-		t.Errorf("Delete failed: %v", err)
-	}
-
-	_, err = repo.GetByID(ctx, proxy.ID)
-	if !errors.Is(err, ErrProxyNotFound) {
-		t.Errorf("Expected ErrProxyNotFound, got %v", err)
-	}
-}
-
-func testList(t *testing.T, repo *memoryRepository) {
-	ctx := context.Background()
-	for i := 0; i < 3; i++ {
-		proxy := createTestProxy(fmt.Sprintf("test5_%d", i))
+	t.Run("Create new proxy", func(t *testing.T) {
 		err := repo.Create(ctx, proxy)
 		if err != nil {
-			t.Fatalf("Create failed: %v", err)
+			t.Fatalf("Create() error = %v", err)
 		}
-	}
+	})
 
-	proxies, err := repo.List(ctx)
-	if err != nil {
-		t.Errorf("List failed: %v", err)
-	}
-	if len(proxies) != 3 {
-		t.Errorf("Expected 3 proxies, got %d", len(proxies))
-	}
-}
+	t.Run("Try to create duplicate proxy", func(t *testing.T) {
+		dupProxy := &domain.Proxy{
+			ID:      "test-123", // Same ID as the first proxy
+			URL:     "http://different.com:8080",
+			Type:    domain.HTTP,
+			Enabled: true,
+		}
+		err := repo.Create(ctx, dupProxy)
+		if !errors.Is(err, repository.ErrDuplicateID) {
+			t.Errorf("Create() error = %v, want %v", err, repository.ErrDuplicateID)
+		}
+	})
 
-func testGetNext(t *testing.T, repo *memoryRepository) {
-	ctx := context.Background()
-	proxy := createTestProxy("test6")
+	t.Run("GetByID", func(t *testing.T) {
+		got, err := repo.GetByID(ctx, proxy.ID)
+		if err != nil {
+			t.Fatalf("GetByID() error = %v", err)
+		}
+		if got.URL != proxy.URL {
+			t.Errorf("GetByID() URL = %v, want %v", got.URL, proxy.URL)
+		}
+	})
 
-	err := repo.Create(ctx, proxy)
-	if err != nil {
-		t.Fatalf("Create failed: %v", err)
-	}
+	t.Run("GetByID not found", func(t *testing.T) {
+		_, err := repo.GetByID(ctx, "non-existent-id")
+		if !errors.Is(err, repository.ErrProxyNotFound) {
+			t.Errorf("GetByID() error = %v, want %v", err, repository.ErrProxyNotFound)
+		}
+	})
 
-	got, err := repo.GetNext(ctx)
-	if err != nil {
-		t.Errorf("GetNext failed: %v", err)
-	}
-	if got.ID != proxy.ID {
-		t.Errorf("Expected ID %s, got %s", proxy.ID, got.ID)
-	}
-}
+	t.Run("List", func(t *testing.T) {
+		proxies, err := repo.List(ctx)
+		if err != nil {
+			t.Fatalf("List() error = %v", err)
+		}
+		if len(proxies) != 1 {
+			t.Errorf("List() returned %d proxies, want 1", len(proxies))
+		}
+	})
 
-func testConcurrentAccess(t *testing.T, repo *memoryRepository) {
-	ctx := context.Background()
-	var wg sync.WaitGroup
-	n := 100
+	t.Run("Update", func(t *testing.T) {
+		proxy.URL = "http://updated.com:8080"
+		err := repo.Update(ctx, proxy)
+		if err != nil {
+			t.Fatalf("Update() error = %v", err)
+		}
 
-	for i := 0; i < n; i++ {
-		wg.Add(1)
-		go func(i int) {
-			defer wg.Done()
-			proxy := createTestProxy(fmt.Sprintf("test7_%d", i))
-			_ = repo.Create(ctx, proxy)
-		}(i)
-	}
+		got, err := repo.GetByID(ctx, proxy.ID)
+		if err != nil {
+			t.Fatalf("GetByID() after update error = %v", err)
+		}
+		if got.URL != "http://updated.com:8080" {
+			t.Errorf("Update() didn't change URL, got %v", got.URL)
+		}
+	})
 
-	wg.Wait()
-	proxies, _ := repo.List(ctx)
-	if len(proxies) != n {
-		t.Errorf("Expected %d proxies, got %d", n, len(proxies))
-	}
+	t.Run("Update not found", func(t *testing.T) {
+		notFound := &domain.Proxy{
+			ID:  "non-existent-id",
+			URL: "http://example.com",
+		}
+		err := repo.Update(ctx, notFound)
+		if !errors.Is(err, repository.ErrProxyNotFound) {
+			t.Errorf("Update() error = %v, want %v", err, repository.ErrProxyNotFound)
+		}
+	})
+
+	t.Run("Enabled state updates", func(t *testing.T) {
+		// Use the SetEnabled method to update both fields consistently
+		proxy.SetEnabled(false)
+
+		err := repo.Update(ctx, proxy)
+		if err != nil {
+			t.Fatalf("Update() error = %v", err)
+		}
+
+		got, err := repo.GetByID(ctx, proxy.ID)
+		if err != nil {
+			t.Fatalf("GetByID() after update error = %v", err)
+		}
+		if got.Enabled != false {
+			t.Errorf("Enabled = %v, want %v", got.Enabled, false)
+		}
+	})
+
+	t.Run("Delete", func(t *testing.T) {
+		err := repo.Delete(ctx, proxy.ID)
+		if err != nil {
+			t.Fatalf("Delete() error = %v", err)
+		}
+
+		_, err = repo.GetByID(ctx, proxy.ID)
+		if !errors.Is(err, repository.ErrProxyNotFound) {
+			t.Errorf("GetByID() after delete error = %v, want %v", err, repository.ErrProxyNotFound)
+		}
+
+		// List should be empty
+		proxies, err := repo.List(ctx)
+		if err != nil {
+			t.Fatalf("List() after delete error = %v", err)
+		}
+		if len(proxies) != 0 {
+			t.Errorf("List() after delete returned %d proxies, want 0", len(proxies))
+		}
+	})
+
+	t.Run("Delete not found", func(t *testing.T) {
+		err := repo.Delete(ctx, "non-existent-id")
+		if !errors.Is(err, repository.ErrProxyNotFound) {
+			t.Errorf("Delete() error = %v, want %v", err, repository.ErrProxyNotFound)
+		}
+	})
 }

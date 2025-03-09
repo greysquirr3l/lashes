@@ -3,30 +3,39 @@ package rotation
 import (
 	"context"
 	"sort"
+	"sync"
 
 	"github.com/greysquirr3l/lashes/internal/domain"
 )
 
-// RoundRobinStrategyImpl implements a round robin proxy rotation strategy
-type roundRobinStrategyImpl struct {
-	index int // tracks the current position in the rotation
+// roundRobinStrategy implements the Strategy interface
+type roundRobinStrategy struct {
+	current int // current index in the rotation
+	mu      *sync.Mutex
 }
 
-// NewRoundRobinStrategy creates a new instance of the round robin rotation strategy
-func NewRoundRobinStrategy() *roundRobinStrategyImpl {
-	return &roundRobinStrategyImpl{index: 0}
+// NewRoundRobinStrategy creates a new round robin strategy
+func NewRoundRobinStrategy() Strategy {
+	return &roundRobinStrategy{
+		current: -1,
+		mu:      &sync.Mutex{},
+	}
 }
 
-// Implementation of the round robin rotation strategy
-func (s *roundRobinStrategyImpl) Next(ctx context.Context, proxies []*domain.Proxy) (*domain.Proxy, error) {
+// Next selects the next proxy in sequence
+func (s *roundRobinStrategy) Next(ctx context.Context, proxies []*domain.Proxy) (*domain.Proxy, error) {
 	if len(proxies) == 0 {
 		return nil, ErrNoProxiesAvailable
 	}
-	// Sort proxies by URL for deterministic rotation
+
+	// Sort proxies by URL for consistent ordering
 	sort.SliceStable(proxies, func(i, j int) bool {
 		return proxies[i].URL < proxies[j].URL
 	})
-	proxy := proxies[s.index%len(proxies)]
-	s.index = (s.index + 1) % len(proxies)
-	return proxy, nil
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.current = (s.current + 1) % len(proxies)
+	return proxies[s.current], nil
 }

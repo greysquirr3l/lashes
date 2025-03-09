@@ -12,27 +12,12 @@ import (
 type MetricsCollector interface {
 	// RecordRequest records a successful request through a proxy
 	RecordRequest(ctx context.Context, proxyID string, latency time.Duration, success bool) error
-	
+
 	// GetProxyMetrics returns metrics for a specific proxy
 	GetProxyMetrics(ctx context.Context, proxyID string) (*ProxyMetrics, error)
-	
+
 	// GetAllMetrics returns metrics for all proxies
 	GetAllMetrics(ctx context.Context) ([]*ProxyMetrics, error)
-}
-
-// ProxyMetrics contains performance metrics for a single proxy
-type ProxyMetrics struct {
-	ProxyID     string        `json:"proxy_id"`
-	URL         string        `json:"url"`
-	Type        string        `json:"type"`
-	SuccessRate float64       `json:"success_rate"`
-	TotalCalls  int64         `json:"total_calls"`
-	AvgLatency  time.Duration `json:"avg_latency_ms"`
-	MinLatency  time.Duration `json:"min_latency_ms"`
-	MaxLatency  time.Duration `json:"max_latency_ms"`
-	LastUsed    time.Time     `json:"last_used"`
-	ErrorCount  int64         `json:"error_count"`
-	IsActive    bool          `json:"is_active"`
 }
 
 // defaultMetricsCollector implements MetricsCollector using in-memory storage
@@ -117,7 +102,7 @@ func (m *defaultMetricsCollector) GetProxyMetrics(ctx context.Context, proxyID s
 		TotalCalls: data.totalCalls,
 		LastUsed:   data.lastUsed,
 		ErrorCount: data.totalErrors,
-		IsActive:   proxy.IsActive,
+		IsActive:   proxy.Enabled, // Use Enabled for IsActive field in metrics
 	}
 
 	// Calculate derived metrics
@@ -150,4 +135,106 @@ func (m *defaultMetricsCollector) GetAllMetrics(ctx context.Context) ([]*ProxyMe
 	}
 
 	return metrics, nil
+}
+
+// cachedMetricsCollector adds caching to the defaultMetricsCollector
+type cachedMetricsCollector struct {
+	defaultMetricsCollector
+	cache      map[string]*ProxyMetrics
+	cacheMu    sync.RWMutex
+	expiration time.Duration
+	lastUpdate time.Time
+}
+
+// NewCachedMetricsCollector creates a metrics collector with caching
+func NewCachedMetricsCollector(repo domain.ProxyRepository, cacheExpiration time.Duration) MetricsCollector {
+	return &cachedMetricsCollector{
+		defaultMetricsCollector: defaultMetricsCollector{
+			repo:    repo,
+			metrics: make(map[string]*proxyMetricsData),
+		},
+		cache:      make(map[string]*ProxyMetrics),
+		expiration: cacheExpiration,
+		lastUpdate: time.Now(),
+	}
+}
+
+// GetProxyMetrics implements MetricsCollector.GetProxyMetrics with caching
+func (m *cachedMetricsCollector) GetProxyMetrics(ctx context.Context, proxyID string) (*ProxyMetrics, error) {
+	// Check cache first
+	m.cacheMu.RLock()
+	metrics, ok := m.cache[proxyID]
+	cacheValid := ok && time.Since(m.lastUpdate) < m.expiration
+	m.cacheMu.RUnlock()
+
+	if cacheValid {
+		return metrics, nil
+	}
+
+	// Cache miss or expired, get fresh data
+	metrics, err := m.defaultMetricsCollector.GetProxyMetrics(ctx, proxyID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update cache
+	m.cacheMu.Lock()
+	m.cache[proxyID] = metrics
+	m.lastUpdate = time.Now()
+	m.cacheMu.Unlock()
+
+	return metrics, nil
+}
+
+// GetAllMetrics implements MetricsCollector.GetAllMetrics with caching
+func (m *cachedMetricsCollector) GetAllMetrics(ctx context.Context) ([]*ProxyMetrics, error) {
+	// Check if the cache is still valid
+	m.cacheMu.RLock()
+	cacheValid := time.Since(m.lastUpdate) < m.expiration && len(m.cache) > 0
+	m.cacheMu.RUnlock()
+
+	if cacheValid {
+		// Return all cached metrics
+		m.cacheMu.RLock()
+		defer m.cacheMu.RUnlock()
+
+		metrics := make([]*ProxyMetrics, 0, len(m.cache))
+		for _, metric := range m.cache {
+			metrics = append(metrics, metric)
+		}
+		return metrics, nil
+	}
+
+	// Cache expired or empty, get fresh data
+	metrics, err := m.defaultMetricsCollector.GetAllMetrics(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update cache
+	m.cacheMu.Lock()
+	m.cache = make(map[string]*ProxyMetrics, len(metrics))
+	for _, metric := range metrics {
+		m.cache[metric.ProxyID] = metric
+	}
+	m.lastUpdate = time.Now()
+	m.cacheMu.Unlock()
+
+	return metrics, nil
+}
+
+// RecordRequest implements MetricsCollector.RecordRequest and invalidates cache
+func (m *cachedMetricsCollector) RecordRequest(ctx context.Context, proxyID string, latency time.Duration, success bool) error {
+	// Update metrics
+	err := m.defaultMetricsCollector.RecordRequest(ctx, proxyID, latency, success)
+	if err != nil {
+		return err
+	}
+
+	// Invalidate cache for this proxy
+	m.cacheMu.Lock()
+	delete(m.cache, proxyID)
+	m.cacheMu.Unlock()
+
+	return nil
 }

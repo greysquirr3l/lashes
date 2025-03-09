@@ -71,9 +71,14 @@ func (r *proxyRepository) GetByID(ctx context.Context, id string) (*domain.Proxy
 		}
 		return nil, result.Error
 	}
-	
-	// Fix the return to include error handling
-	return model.ToDomain()
+
+	// Convert model to domain object
+	proxy, err := model.ToDomain()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert to domain model: %w", err)
+	}
+
+	return proxy, nil
 }
 
 // Update updates an existing proxy
@@ -111,7 +116,6 @@ func (r *proxyRepository) List(ctx context.Context) ([]*domain.Proxy, error) {
 
 	proxies := make([]*domain.Proxy, 0, len(models))
 	for _, model := range models {
-		// Handle potential error from ToDomain
 		proxy, err := model.ToDomain()
 		if err != nil {
 			return nil, err
@@ -133,9 +137,13 @@ func (r *proxyRepository) GetNext(ctx context.Context) (*domain.Proxy, error) {
 		}
 		return nil, err
 	}
-	
-	// Fix the return to include error handling
-	return model.ToDomain()
+
+	proxy, err := model.ToDomain()
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert to domain model: %w", err)
+	}
+
+	return proxy, nil
 }
 
 // validateProxy checks if a proxy is valid
@@ -150,37 +158,4 @@ func validateProxy(proxy *domain.Proxy) error {
 		return errors.New("proxy URL cannot be empty")
 	}
 	return nil
-}
-
-// toModel is a legacy conversion function maintained for backward compatibility.
-// New code should use FromDomain instead.
-// nolint:unused
-func toModel(proxy *domain.Proxy) *ProxyModel {
-	// Convert pointers to values, using zero values if nil
-	var lastUsed time.Time
-	if proxy.LastUsed != nil {
-		lastUsed = *proxy.LastUsed
-	}
-	
-	var lastCheck time.Time
-	if proxy.LastCheck != nil {
-		lastCheck = *proxy.LastCheck
-	}
-	
-	return &ProxyModel{
-		ID:          proxy.ID,
-		URL:         proxy.URL, // URL is already a string
-		Type:        string(proxy.Type),
-		Username:    proxy.Username,
-		Password:    proxy.Password,
-		CountryCode: proxy.CountryCode,
-		Weight:      proxy.Weight,
-		LastUsed:    lastUsed,
-		LastCheck:   lastCheck,
-		Latency:     proxy.Latency, 
-		IsActive:    proxy.IsActive,
-		SuccessRate: proxy.SuccessRate,
-		UsageCount:  proxy.UsageCount,
-		ErrorCount:  proxy.ErrorCount,
-	}
 }

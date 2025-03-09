@@ -1,10 +1,12 @@
 // Package rotation implements proxy rotation strategies.
 //
-// Available strategies:
-//   - Round-robin: Rotates through proxies sequentially
-//   - Random: Selects proxies randomly
-//   - Weighted: Uses proxy weights to influence selection probability
-//   - Least-used: Prioritizes proxies with fewer requests
+// This package provides various algorithms for selecting proxies from a pool:
 //
-// All strategies are thread-safe and can be used concurrently.
+// - Round-robin: Rotate through proxies sequentially
+// - Random: Select proxies at random with equal probability
+// - Weighted: Select proxies based on their assigned weights
+// - LeastUsed: Prioritize proxies with lower usage counts
+//
+// All strategies implement the Strategy interface, which provides
+// a consistent API for proxy selection.
 package rotation

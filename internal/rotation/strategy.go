@@ -15,7 +15,7 @@ import (
 // StrategyType defines the type of rotation strategy to use
 type StrategyType string
 
-// Available rotation strategies
+// Available rotation strategies with consistent naming
 const (
 	RoundRobinStrategy StrategyType = "round-robin"
 	RandomStrategy     StrategyType = "random"
@@ -23,7 +23,8 @@ const (
 	LeastUsedStrategy  StrategyType = "least-used"
 )
 
-// Legacy constants for backward compatibility
+// Deprecated: Legacy constants for backward compatibility
+// Use the newer versions with "Strategy" suffix instead.
 const (
 	RoundRobin = RoundRobinStrategy
 	Random     = RandomStrategy
@@ -46,10 +47,7 @@ type Strategy interface {
 func NewStrategy(strategyType StrategyType) (Strategy, error) {
 	switch strategyType {
 	case RoundRobinStrategy, "RoundRobin":
-		return &roundRobinStrategy{
-			current: -1,
-			mu:      &sync.Mutex{},
-		}, nil
+		return NewRoundRobinStrategy(), nil
 	case RandomStrategy, "Random":
 		return &randomStrategy{}, nil
 	case WeightedStrategy, "Weighted":
@@ -57,26 +55,8 @@ func NewStrategy(strategyType StrategyType) (Strategy, error) {
 	case LeastUsedStrategy, "LeastUsed":
 		return &leastUsedStrategy{}, nil
 	default:
-		return nil, ErrInvalidStrategy
+		return nil, fmt.Errorf("%w: %s", ErrInvalidStrategy, strategyType)
 	}
-}
-
-// roundRobinStrategy implements a round robin rotation strategy
-type roundRobinStrategy struct {
-	current int
-	mu      *sync.Mutex
-}
-
-func (s *roundRobinStrategy) Next(ctx context.Context, proxies []*domain.Proxy) (*domain.Proxy, error) {
-	if len(proxies) == 0 {
-		return nil, ErrNoProxiesAvailable
-	}
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.current = (s.current + 1) % len(proxies)
-	return proxies[s.current], nil
 }
 
 // randomStrategy implements a random rotation strategy
@@ -93,13 +73,13 @@ func (s *randomStrategy) Next(ctx context.Context, proxies []*domain.Proxy) (*do
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate random number: %w", err)
 	}
-	
+
 	index := nBig.Int64()
 	return proxies[index], nil
 }
 
 // weightedStrategy implements a weighted rotation strategy based on success rate and explicit weights
-type weightedStrategy struct{
+type weightedStrategy struct {
 	mu sync.Mutex
 }
 
@@ -143,7 +123,7 @@ func (s *weightedStrategy) selectProxyByWeight(proxies []*domain.Proxy, weights 
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate random number: %w", err)
 	}
-	
+
 	// Convert to float and scale to our weight range
 	selector := float64(nBig.Int64()) / 1000.0
 
@@ -168,7 +148,7 @@ func (s *weightedStrategy) handleEmptyOrSingleProxy(proxies []*domain.Proxy) (*d
 	if len(proxies) == 1 {
 		return proxies[0], nil, true
 	}
-	
+
 	return nil, nil, false
 }
 
@@ -195,7 +175,7 @@ func (s *weightedStrategy) Next(ctx context.Context, proxies []*domain.Proxy) (*
 }
 
 // leastUsedStrategy implements a strategy that selects the least used proxy
-type leastUsedStrategy struct{
+type leastUsedStrategy struct {
 	mu sync.Mutex
 }
 
@@ -207,7 +187,7 @@ func (s *leastUsedStrategy) handleEmptyOrSingleProxy(proxies []*domain.Proxy) (*
 	if len(proxies) == 1 {
 		return proxies[0], nil, true
 	}
-	
+
 	return nil, nil, false
 }
 
@@ -227,7 +207,7 @@ func (s *leastUsedStrategy) findMinimumUsageCandidates(proxies []*domain.Proxy) 
 			candidates = append(candidates, proxy)
 		}
 	}
-	
+
 	return candidates
 }
 

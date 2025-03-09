@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"time"
@@ -16,7 +17,7 @@ const (
 	SOCKS5Proxy ProxyType = "socks5"
 )
 
-// Alias constants for backward compatibility
+// Alias constants for better readability
 const (
 	HTTP   = HTTPProxy
 	SOCKS4 = SOCKS4Proxy
@@ -44,7 +45,7 @@ type ProxySettings struct {
 // Proxy represents a proxy server configuration
 type Proxy struct {
 	ID          string     `json:"id" gorm:"primaryKey"`
-	URL         string     `json:"url"`
+	URL         string     `json:"url"` // Standardized to string representation
 	Type        ProxyType  `json:"type"`
 	Username    string     `json:"username,omitempty"`
 	Password    string     `json:"password,omitempty"`
@@ -62,14 +63,13 @@ type Proxy struct {
 	Settings    ProxySettings
 	MaxRetries  int           // Maximum retry attempts
 	Timeout     time.Duration // Proxy-specific timeout
-	
-	// Backwards compatibility fields
-	IsActive   bool       // Alias for Enabled
-	LastCheck  *time.Time // Last time the proxy was validated
 }
 
 // ParseURL parses the proxy URL string into a URL object
 func (p *Proxy) ParseURL() (*url.URL, error) {
+	if p.URL == "" {
+		return nil, fmt.Errorf("empty URL")
+	}
 	return url.Parse(p.URL)
 }
 
@@ -82,4 +82,14 @@ func (p *Proxy) IsValid() bool {
 // String returns the URL as a string representation of the proxy
 func (p *Proxy) String() string {
 	return p.URL
+}
+
+// GetEnabled returns the proxy's enabled state
+func (p *Proxy) GetEnabled() bool {
+	return p.Enabled
+}
+
+// SetEnabled sets the enabled state
+func (p *Proxy) SetEnabled(enabled bool) {
+	p.Enabled = enabled
 }

@@ -5,11 +5,33 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/url"
 	"time"
 
 	"github.com/greysquirr3l/lashes/internal/domain"
 	"github.com/greysquirr3l/lashes/internal/repository"
+)
+
+const (
+	// SQL statement to create the proxies table - updated schema
+	createTableSQL = `
+	CREATE TABLE IF NOT EXISTS proxies (
+		id TEXT PRIMARY KEY,
+		url TEXT NOT NULL,
+		type TEXT NOT NULL,
+		username TEXT,
+		password TEXT,
+		country_code TEXT,
+		weight INTEGER DEFAULT 1,
+		last_used TIMESTAMP,
+		enabled BOOLEAN DEFAULT true,
+		latency INTEGER DEFAULT 0,
+		success_rate REAL DEFAULT 0,
+		usage_count INTEGER DEFAULT 0,
+		error_count INTEGER DEFAULT 0,
+		created_at TIMESTAMP NOT NULL,
+		updated_at TIMESTAMP NOT NULL
+	)
+	`
 )
 
 type sqlRepository struct {
@@ -17,14 +39,25 @@ type sqlRepository struct {
 	timeout time.Duration
 }
 
+// Call init() in the constructor to ensure tables are created
 func NewSQLRepository(db *sql.DB, timeout time.Duration) repository.ProxyRepository {
 	if timeout == 0 {
 		timeout = 30 * time.Second
 	}
-	return &sqlRepository{
+	repo := &sqlRepository{
 		db:      db,
 		timeout: timeout,
 	}
+
+	// Call init to create the tables if needed
+	_ = repo.init() // Ignore error for simplicity, or handle it properly
+
+	return repo
+}
+
+func (r *sqlRepository) init() error {
+	_, err := r.db.Exec(createTableSQL)
+	return err
 }
 
 func (r *sqlRepository) Create(ctx context.Context, proxy *domain.Proxy) error {
@@ -33,24 +66,35 @@ func (r *sqlRepository) Create(ctx context.Context, proxy *domain.Proxy) error {
 
 	query := `
         INSERT INTO proxies (
-            id, url, type, last_used, last_check, latency, is_active,
-            weight, max_retries, timeout_ms
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            id, url, type, username, password, country_code, weight, 
+            last_used, enabled, latency, success_rate, 
+            usage_count, error_count, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
+
+	now := time.Now()
+	if proxy.CreatedAt.IsZero() {
+		proxy.CreatedAt = now
+	}
+	proxy.UpdatedAt = now
 
 	_, err := r.db.ExecContext(ctx, query,
 		proxy.ID,
-		proxy.URL, // URL is already a string
-		proxy.Type,
-		proxy.LastUsed,
-		proxy.LastCheck,
-		proxy.Latency,
-		proxy.IsActive,
+		proxy.URL,
+		string(proxy.Type),
+		proxy.Username,
+		proxy.Password,
+		proxy.CountryCode,
 		proxy.Weight,
-		proxy.MaxRetries,
-		proxy.Timeout,
+		proxy.LastUsed,
+		proxy.Enabled,
+		proxy.Latency,
+		proxy.SuccessRate,
+		proxy.UsageCount,
+		proxy.ErrorCount,
+		proxy.CreatedAt,
+		proxy.UpdatedAt,
 	)
-
 	if err != nil {
 		if isSQLiteConstraintError(err) || isPostgresConstraintError(err) {
 			return repository.ErrDuplicateID
@@ -87,27 +131,35 @@ func (r *sqlRepository) GetByID(ctx context.Context, id string) (*domain.Proxy, 
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
-	query := `SELECT id, url, type, last_used, last_check, latency, is_active, 
-              weight, max_retries, timeout_ms FROM proxies WHERE id = $1`
+	query := `
+	SELECT 
+		id, url, type, username, password, country_code, weight, 
+		last_used, enabled, latency, success_rate, 
+		usage_count, error_count, created_at, updated_at
+	FROM proxies 
+	WHERE id = ?
+	`
 
-	row := r.db.QueryRowContext(ctx, query, id)
+	proxy := &domain.Proxy{}
+	var lastUsed, createdAt, updatedAt sql.NullTime
 
-	var proxy domain.Proxy
-	var urlStr string
-
-	err := row.Scan(
+	err := r.db.QueryRowContext(ctx, query, id).Scan(
 		&proxy.ID,
-		&urlStr,
+		&proxy.URL,
 		&proxy.Type,
-		&proxy.LastUsed,
-		&proxy.LastCheck,
-		&proxy.Latency,
-		&proxy.IsActive,
+		&proxy.Username,
+		&proxy.Password,
+		&proxy.CountryCode,
 		&proxy.Weight,
-		&proxy.MaxRetries,
-		&proxy.Timeout,
+		&lastUsed,
+		&proxy.Enabled,
+		&proxy.Latency,
+		&proxy.SuccessRate,
+		&proxy.UsageCount,
+		&proxy.ErrorCount,
+		&createdAt,
+		&updatedAt,
 	)
-
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repository.ErrProxyNotFound
@@ -115,10 +167,21 @@ func (r *sqlRepository) GetByID(ctx context.Context, id string) (*domain.Proxy, 
 		return nil, fmt.Errorf("failed to get proxy: %w", err)
 	}
 
-	// Fixed: assign URL string directly
-	proxy.URL = urlStr
+	// Convert nullable fields
+	if lastUsed.Valid {
+		t := lastUsed.Time
+		proxy.LastUsed = &t
+	}
 
-	return &proxy, nil
+	if createdAt.Valid {
+		proxy.CreatedAt = createdAt.Time
+	}
+
+	if updatedAt.Valid {
+		proxy.UpdatedAt = updatedAt.Time
+	}
+
+	return proxy, nil
 }
 
 func (r *sqlRepository) GetNext(ctx context.Context) (*domain.Proxy, error) {
@@ -126,9 +189,9 @@ func (r *sqlRepository) GetNext(ctx context.Context) (*domain.Proxy, error) {
 	defer cancel()
 
 	// Using round-robin strategy by default
-	query := `SELECT id, url, type, last_used, last_check, latency, is_active, 
+	query := `SELECT id, url, type, last_used, enabled, latency, 
             weight, max_retries, timeout_ms FROM proxies 
-            WHERE is_active = true 
+            WHERE enabled = true 
             ORDER BY last_used ASC LIMIT 1`
 
 	row := r.db.QueryRowContext(ctx, query)
@@ -141,14 +204,12 @@ func (r *sqlRepository) GetNext(ctx context.Context) (*domain.Proxy, error) {
 		&urlStr,
 		&proxy.Type,
 		&proxy.LastUsed,
-		&proxy.LastCheck,
+		&proxy.Enabled,
 		&proxy.Latency,
-		&proxy.IsActive,
 		&proxy.Weight,
 		&proxy.MaxRetries,
 		&proxy.Timeout,
 	)
-
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repository.ErrProxyNotFound
@@ -173,14 +234,14 @@ func (r *sqlRepository) List(ctx context.Context) ([]*domain.Proxy, error) {
 	ctx, cancel := context.WithTimeout(ctx, r.timeout)
 	defer cancel()
 
-	query := `SELECT id, url, type, last_used, last_check, latency, is_active, 
+	query := `SELECT id, url, type, last_used, enabled, latency, 
               weight, max_retries, timeout_ms FROM proxies`
 
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list proxies: %w", err)
 	}
-	defer func() { 
+	defer func() {
 		if err := rows.Close(); err != nil {
 			// Consider logging this error or handling it appropriately
 		}
@@ -197,9 +258,8 @@ func (r *sqlRepository) List(ctx context.Context) ([]*domain.Proxy, error) {
 			&urlStr,
 			&proxy.Type,
 			&proxy.LastUsed,
-			&proxy.LastCheck,
+			&proxy.Enabled,
 			&proxy.Latency,
-			&proxy.IsActive,
 			&proxy.Weight,
 			&proxy.MaxRetries,
 			&proxy.Timeout,
@@ -226,25 +286,30 @@ func (r *sqlRepository) Update(ctx context.Context, proxy *domain.Proxy) error {
 
 	query := `
         UPDATE proxies SET
-            url = $1, type = $2, last_used = $3, last_check = $4,
-            latency = $5, is_active = $6, weight = $7, max_retries = $8,
-            timeout_ms = $9, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $10
+            url = ?, type = ?, username = ?, password = ?, country_code = ?, 
+            weight = ?, last_used = ?, enabled = ?, latency = ?, 
+            success_rate = ?, usage_count = ?, error_count = ?, updated_at = ?
+        WHERE id = ?
     `
 
+	proxy.UpdatedAt = time.Now()
+
 	result, err := r.db.ExecContext(ctx, query,
-		proxy.URL, // URL is already a string
-		proxy.Type,
-		proxy.LastUsed,
-		proxy.LastCheck,
-		proxy.Latency,
-		proxy.IsActive,
+		proxy.URL,
+		string(proxy.Type),
+		proxy.Username,
+		proxy.Password,
+		proxy.CountryCode,
 		proxy.Weight,
-		proxy.MaxRetries,
-		proxy.Timeout,
+		proxy.LastUsed,
+		proxy.Enabled,
+		proxy.Latency,
+		proxy.SuccessRate,
+		proxy.UsageCount,
+		proxy.ErrorCount,
+		proxy.UpdatedAt,
 		proxy.ID,
 	)
-
 	if err != nil {
 		return fmt.Errorf("failed to update proxy: %w", err)
 	}
@@ -256,91 +321,6 @@ func (r *sqlRepository) Update(ctx context.Context, proxy *domain.Proxy) error {
 
 	if rowsAffected == 0 {
 		return repository.ErrProxyNotFound
-	}
-
-	return nil
-}
-
-// nolint:unused
-func (r *sqlRepository) insertProxy(ctx context.Context, tx *sql.Tx, proxy *domain.Proxy) error {
-	query := `
-        INSERT INTO proxies (
-            id, url, type, last_used, last_check, latency, is_active,
-            weight, max_retries, timeout_ms
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-    `
-
-	stmt, err := tx.PrepareContext(ctx, query)
-	if err != nil {
-		return fmt.Errorf("failed to prepare insert statement: %w", err)
-	}
-	defer func() {
-		if closeErr := stmt.Close(); closeErr != nil {
-			// Log the error or append it to the returned error if not nil
-			err = errors.Join(err, fmt.Errorf("failed to close statement: %w", closeErr))
-		}
-	}()
-
-	_, err = stmt.ExecContext(ctx, proxy.ID, proxy.URL, string(proxy.Type),
-		proxy.LastUsed, proxy.LastCheck, proxy.Latency, proxy.IsActive,
-		proxy.Weight, proxy.MaxRetries, proxy.Timeout)
-	if err != nil {
-		return fmt.Errorf("failed to execute insert statement: %w", err)
-	}
-
-	return nil
-}
-
-// nolint:unused
-func (r *sqlRepository) validateProxy(proxy *domain.Proxy) error {
-	if proxy.URL == "" {
-		return errors.New("proxy URL cannot be empty")
-	}
-
-	parsedURL, err := url.Parse(proxy.URL)
-	if err != nil {
-		return fmt.Errorf("invalid proxy URL: %w", err)
-	}
-
-	// Fixed: update URL with the string representation
-	proxy.URL = parsedURL.String()
-	return nil
-}
-
-// nolint:unused
-func (r *sqlRepository) updateProxy(ctx context.Context, tx *sql.Tx, proxy *domain.Proxy) error {
-	query := `
-        UPDATE proxies SET
-            url = $1, type = $2, last_used = $3, last_check = $4,
-            latency = $5, is_active = $6, weight = $7, max_retries = $8,
-            timeout_ms = $9, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $10
-    `
-
-	stmt, err := tx.PrepareContext(ctx, query)
-	if err != nil {
-		return fmt.Errorf("failed to prepare update statement: %w", err)
-	}
-	defer func() {
-		if closeErr := stmt.Close(); closeErr != nil {
-			// Log the error or append it to the returned error if not nil
-			err = errors.Join(err, fmt.Errorf("failed to close statement: %w", closeErr))
-		}
-	}()
-
-	parsedURL, err := url.Parse(proxy.URL)
-	if err != nil {
-		return fmt.Errorf("invalid proxy URL: %w", err)
-	}
-
-	// Fixed: update URL with the string representation
-	proxy.URL = parsedURL.String()
-
-	_, err = stmt.ExecContext(ctx, proxy.URL, string(proxy.Type), proxy.LastUsed,
-		proxy.LastCheck, proxy.Latency, proxy.IsActive, proxy.Weight,
-		proxy.MaxRetries, proxy.Timeout, proxy.ID)
-	if err != nil {
-		return fmt.Errorf("failed to execute update statement: %w", err)
 	}
 
 	return nil

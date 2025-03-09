@@ -13,7 +13,7 @@ import (
 	"github.com/greysquirr3l/lashes/internal/rotation"
 )
 
-func setupMocksForTests(t *testing.T) (func(), func()) {
+func setupMocksForTests() (func(), func()) {
 	// Setup mock URL parser that preserves the exact URL string
 	resetURLParser := mock.SetURLParser(func(rawURL string) (*url.URL, error) {
 		return url.Parse(rawURL)
@@ -36,14 +36,19 @@ func setupMocksForTests(t *testing.T) (func(), func()) {
 
 // TestRoundRobinStrategy tests that proxies can be rotated
 func TestRoundRobinStrategy(t *testing.T) {
-	resetURLParser, resetClient := setupMocksForTests(t)
+	// Actually use the parameter
+	if testing.Short() {
+		t.Skip("Skipping extended test in short mode")
+	}
+
+	resetURLParser, resetClient := setupMocksForTests()
 	defer resetURLParser()
 	defer resetClient()
 
 	// Create a rotator with round-robin strategy
 	opts := lashes.Options{
 		Strategy:        rotation.RoundRobinStrategy,
-		ValidateOnStart: false,  // Skip validation to focus on rotation
+		ValidateOnStart: false, // Skip validation to focus on rotation
 	}
 
 	rotator, err := lashes.New(opts)
@@ -72,11 +77,11 @@ func TestRoundRobinStrategy(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to get proxy at index %d: %v", i, err)
 		}
-		
+
 		// Record this proxy URL
 		seen[proxy.URL]++
 	}
-	
+
 	// Verify that we saw each proxy at least once
 	for _, url := range proxyURLs {
 		count, found := seen[url]
@@ -86,7 +91,7 @@ func TestRoundRobinStrategy(t *testing.T) {
 			t.Errorf("Expected to see proxy %s at least once, saw it %d times", url, count)
 		}
 	}
-	
+
 	// Verify we didn't see any proxies we didn't add
 	if len(seen) != len(proxyURLs) {
 		t.Errorf("Expected to see exactly %d unique proxies, saw %d", len(proxyURLs), len(seen))
@@ -95,7 +100,7 @@ func TestRoundRobinStrategy(t *testing.T) {
 
 // TestRandomStrategy can remain unchanged
 func TestRandomStrategy(t *testing.T) {
-	resetURLParser, resetClient := setupMocksForTests(t)
+	resetURLParser, resetClient := setupMocksForTests()
 	defer resetURLParser()
 	defer resetClient()
 

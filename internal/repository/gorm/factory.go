@@ -2,6 +2,7 @@ package gorm
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/greysquirr3l/lashes/internal/storage"
 	"gorm.io/driver/mysql"
@@ -10,37 +11,45 @@ import (
 	"gorm.io/gorm"
 )
 
+// NewDB creates a new GORM database connection using the provided options
 func NewDB(opts storage.Options) (*gorm.DB, error) {
 	var dialector gorm.Dialector
 
 	switch opts.Type {
 	case storage.SQLite:
-		dialector = sqlite.Open(opts.DSN)
+		dialector = sqlite.Open(opts.FilePath)
 	case storage.MySQL:
-		dialector = mysql.Open(opts.DSN)
+		dialector = mysql.Open(opts.ConnectionString)
 	case storage.Postgres:
-		dialector = postgres.Open(opts.DSN)
+		dialector = postgres.Open(opts.ConnectionString)
+	case storage.Memory:
+		// Memory is not supported by GORM, fall through to default case
+		fallthrough
 	default:
 		return nil, fmt.Errorf("unsupported database type: %s", opts.Type)
 	}
 
 	config := &gorm.Config{}
+
 	db, err := gorm.Open(dialector, config)
 	if err != nil {
-		return nil, fmt.Errorf("failed to connect to database: %w", err)
+		return nil, err
 	}
 
+	// Configure the connection pool
 	sqlDB, err := db.DB()
 	if err != nil {
 		return nil, err
 	}
 
-	sqlDB.SetMaxOpenConns(opts.MaxConnections)
-	sqlDB.SetConnMaxLifetime(opts.ConnTimeout)
+	// Set reasonable defaults
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetMaxOpenConns(20)
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
-	// Auto-migrate the schema
+	// Auto migrate models
 	if err := db.AutoMigrate(&ProxyModel{}); err != nil {
-		return nil, fmt.Errorf("failed to migrate database: %w", err)
+		return nil, err
 	}
 
 	return db, nil

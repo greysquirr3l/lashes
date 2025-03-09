@@ -2,6 +2,7 @@ package lashes
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -11,6 +12,10 @@ import (
 
 // ValidateProxy validates a single proxy against a target URL
 func (r *rotator) ValidateProxy(ctx context.Context, proxy *domain.Proxy, targetURL string) (bool, time.Duration, error) {
+	// Create a proper timeout context if not already set
+	ctx, cancel := context.WithTimeout(ctx, r.opts.ValidationTimeout)
+	defer cancel()
+
 	validator := validation.NewValidator(validation.Config{
 		Timeout:    r.opts.ValidationTimeout,
 		RetryCount: r.opts.MaxRetries,
@@ -22,7 +27,8 @@ func (r *rotator) ValidateProxy(ctx context.Context, proxy *domain.Proxy, target
 
 // ValidateAll validates all proxies in the pool
 func (r *rotator) ValidateAll(ctx context.Context) error {
-	proxies, err := r.repo.List(ctx)
+	// Split function to reduce complexity
+	proxies, err := r.getProxiesForValidation(ctx)
 	if err != nil {
 		return err
 	}
@@ -33,61 +39,116 @@ func (r *rotator) ValidateAll(ctx context.Context) error {
 		TestURL:    r.opts.TestURL,
 	})
 
+	var validationErrors []error
 	for _, proxy := range proxies {
-		valid, latency, err := validator.Validate(ctx, proxy)
-		if err != nil {
-			// Log error but continue with next proxy
-			continue
+		if err := r.validateSingleProxy(ctx, proxy, validator, &validationErrors); err != nil {
+			return err
 		}
+	}
 
-		// Update proxy status
-		proxy.IsActive = valid
-		if valid {
-			proxy.Latency = int64(latency.Milliseconds())
-			now := time.Now()
-			proxy.LastCheck = &now
-		} else {
-			// Increment failure count or mark as inactive
-		}
-
-		// Record metrics
-		if r.metrics != nil {
-			if metricErr := r.metrics.RecordRequest(ctx, proxy.ID, latency, valid); metricErr != nil {
-				// Log the error but continue with the validation process
-				fmt.Printf("Failed to record metrics: %v\n", metricErr)
-				// Alternatively, could use a more structured approach with a logger
-				// r.logger.Error("Failed to record metrics", "error", metricErr)
-			}
-		}
-
-		// Update the proxy in the repository
-		if err := r.repo.Update(ctx, proxy); err != nil {
-			// Log error but continue with next proxy
-			continue
-		}
+	// If we had validation errors, return a combined error
+	if len(validationErrors) > 0 {
+		return fmt.Errorf("validation completed with %d errors: %w", len(validationErrors), errors.Join(validationErrors...))
 	}
 
 	return nil
 }
 
-// validateProxy validates a proxy against a test URL.
-// This is an internal helper method used by the validation system.
-// nolint:unused // Intentionally kept for API completeness
-func (r *rotator) validateProxy(proxy *domain.Proxy) error {
-	if (!proxy.Enabled) {
-		return fmt.Errorf("proxy %s is disabled", proxy.ID)
+// getProxiesForValidation gets the list of proxies to validate
+func (r *rotator) getProxiesForValidation(ctx context.Context) ([]*domain.Proxy, error) {
+	// Ensure we have a valid context
+	if ctx == nil {
+		ctx = context.Background()
 	}
 
-	valid, latency, err := r.ValidateProxy(context.Background(), proxy, r.opts.TestURL)
+	// Create a timeout context derived from the parent context
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+
+	// Use the timeout context for the repository call
+	proxies, err := r.repo.List(ctxWithTimeout)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to list proxies: %w", err)
 	}
 
-	proxy.IsActive = valid
-	proxy.Latency = int64(latency.Milliseconds()) // Convert time.Duration to int64
-	
-	now := time.Now() // Create a new time.Time value
-	proxy.LastCheck = &now // Assign its address to LastCheck
+	if len(proxies) == 0 {
+		return nil, ErrNoProxiesAvailable
+	}
+
+	return proxies, nil
+}
+
+// validateSingleProxy validates a single proxy
+func (r *rotator) validateSingleProxy(
+	ctx context.Context,
+	proxy *domain.Proxy,
+	validator validation.Validator,
+	validationErrors *[]error,
+) error {
+	// Skip validation if context is done
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		// Continue validation
+	}
+
+	// Create a sub-context for this validation
+	proxyCtx, cancel := context.WithTimeout(ctx, r.opts.ValidationTimeout)
+	defer cancel()
+
+	valid, latency, err := validator.Validate(proxyCtx, proxy)
+
+	// Update proxy status
+	proxy.SetEnabled(valid)
+
+	if valid {
+		proxy.Latency = int64(latency.Milliseconds())
+		// Update timestamp in a proxy metadata field if needed
+		// For now, we just record the success
+	} else if err != nil {
+		*validationErrors = append(*validationErrors, NewValidationError(
+			proxy.ID,
+			proxy.URL,
+			err.Error(),
+			0,
+		))
+	}
+
+	// Record metrics and update repository
+	return r.recordValidationResults(ctx, proxy, latency, valid, validationErrors)
+}
+
+// recordValidationResults records metrics and updates the repository
+func (r *rotator) recordValidationResults(
+	ctx context.Context,
+	proxy *domain.Proxy,
+	latency time.Duration,
+	valid bool,
+	validationErrors *[]error,
+) error {
+	// Record metrics
+	if r.metrics != nil {
+		metricCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		metricErr := r.metrics.RecordRequest(metricCtx, proxy.ID, latency, valid)
+		cancel()
+
+		if metricErr != nil {
+			// Log error but continue with validation process
+			*validationErrors = append(*validationErrors,
+				fmt.Errorf("metrics recording for proxy %s: %w", proxy.ID, metricErr))
+		}
+	}
+
+	// Update the proxy in the repository
+	updateCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	if err := r.repo.Update(updateCtx, proxy); err != nil {
+		*validationErrors = append(*validationErrors,
+			fmt.Errorf("failed to update proxy %s: %w", proxy.ID, err))
+		return nil // Continue with other proxies
+	}
 
 	return nil
 }

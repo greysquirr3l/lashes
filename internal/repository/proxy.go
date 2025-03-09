@@ -8,7 +8,7 @@ import (
 
 // ProxyRepository defines the interface for proxy storage operations
 type ProxyRepository interface {
-	// Create stores a new proxy
+	// Create stores a new proxy in the repository
 	Create(ctx context.Context, proxy *domain.Proxy) error
 
 	// GetByID retrieves a proxy by its ID
@@ -17,12 +17,12 @@ type ProxyRepository interface {
 	// Update modifies an existing proxy
 	Update(ctx context.Context, proxy *domain.Proxy) error
 
-	// Delete removes a proxy by its ID
+	// Delete removes a proxy by ID
 	Delete(ctx context.Context, id string) error
 
-	// List returns all available proxies
+	// List returns all proxies in the repository
 	List(ctx context.Context) ([]*domain.Proxy, error)
 
-	// GetNext returns the next proxy according to the repository's strategy
+	// GetNext returns the next proxy according to the defined strategy
 	GetNext(ctx context.Context) (*domain.Proxy, error)
 }

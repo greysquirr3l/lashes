@@ -33,7 +33,6 @@ func (p *freeProxyProvider) parseTextList(resp *http.Response) ([]*domain.Proxy,
 			URL:        parsedURL.String(), // Convert URL to string
 			Type:       domain.HTTPProxy,   // Use proper constant
 			Enabled:    true,
-			IsActive:   true, // For backwards compatibility
 			MaxRetries: 3,
 		}
 		proxies = append(proxies, proxy)
@@ -67,7 +66,6 @@ func (p *freeProxyProvider) parseProxyScrape(resp *http.Response) ([]*domain.Pro
 			URL:        parsedURL.String(), // Convert URL to string
 			Type:       domain.HTTPProxy,   // Use proper constant
 			Enabled:    true,
-			IsActive:   true, // For backwards compatibility
 			MaxRetries: 3,
 		}
 		proxies = append(proxies, proxy)
@@ -76,10 +74,10 @@ func (p *freeProxyProvider) parseProxyScrape(resp *http.Response) ([]*domain.Pro
 	return proxies, nil
 }
 
-// parseProxyLine parses a line of text into a proxy object.
-// This is a utility function exported for external consumers of the package.
-// nolint:unused
-func parseProxyLine(line string) (*domain.Proxy, error) {
+// ParseProxyLine parses a line of text into a proxy object.
+// This exported function can be used by external packages needing to convert
+// IP:Port formatted strings to proxy objects.
+func ParseProxyLine(line string) (*domain.Proxy, error) {
 	line = strings.TrimSpace(line)
 	if line == "" {
 		return nil, fmt.Errorf("empty line")
@@ -94,8 +92,7 @@ func parseProxyLine(line string) (*domain.Proxy, error) {
 		ID:         uuid.New().String(),
 		URL:        parsedURL.String(), // Convert URL to string
 		Type:       domain.HTTPProxy,   // Use proper constant
-		Enabled:    true,              
-		IsActive:   true, // For backwards compatibility
+		Enabled:    true,
 		MaxRetries: 3,
 	}
 

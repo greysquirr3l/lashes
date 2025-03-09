@@ -1,4 +1,4 @@
+// Package repository provides proxy storage implementations for different backends.
 package repository
 
-// This file can be safely deleted as the ProxyRepository interface
-// is already defined in internal/repository/proxy.go
+// This file can be safely deleted as the interfaces have been moved to their respective files
